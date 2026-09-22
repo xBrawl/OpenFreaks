@@ -247,6 +247,16 @@ func (s *Store) GetAccount(pid int64) (*Account, bool) {
 	return a, ok
 }
 
+func (s *Store) AccountIDs() []int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	ids := make([]int64, 0, len(s.accounts))
+	for id := range s.accounts {
+		ids = append(ids, id)
+	}
+	return ids
+}
+
 func (s *Store) PeekAccount(pid int64) (*Account, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

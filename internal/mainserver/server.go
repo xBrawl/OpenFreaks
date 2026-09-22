@@ -83,6 +83,11 @@ func NewServer(cfg config.Node, st *store.Store, cat *content.Catalog, catData *
 	} else if granted > 0 {
 		log.Info("starter upgrade-token grant applied", "accounts", granted, "amount", store.StarterUpgradeTokens)
 	}
+	if accounts, characters, ok := s.grantExistingMaxCharacterLevels(); !ok {
+		log.Error("existing character max-level grant failed")
+	} else if accounts > 0 {
+		log.Info("existing character max-level grant applied", "accounts", accounts, "characters", characters, "level", 17)
+	}
 	s.mm = NewMatchmaking(s)
 	_ = onBattleResult
 	return s

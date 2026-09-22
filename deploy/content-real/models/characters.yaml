@@ -201,7 +201,7 @@
   weapon_skill_name: karity_spit
   ultimate_skill_name: karity_jump
   speed: 380
-  hit_points: 36000
+  hit_points: 145000
   ultimate_charge_multiplier: 100
   ultimate_charge_ultimate_multiplier: 100
   charge_ultimate_automatically: 26

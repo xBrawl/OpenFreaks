@@ -24,12 +24,19 @@ func megaBossWorld(t *testing.T, humans int) (*World, *Player) {
 
 func TestMegaBossThreeMinuteLimitAndHealthScaling(t *testing.T) {
 	w, boss := megaBossWorld(t, 3)
+	if boss.Definition.Int("hit_points") <= hitPointsThresh {
+		t.Fatal("boss catalog HP must select the extended snapshot field on the client")
+	}
 	if w.DurationTicks != 3600 || boss.MaxHP != 145000 || w.Endless {
 		t.Fatalf("wrong three-player tuning: ticks=%d hp=%d endless=%v", w.DurationTicks, boss.MaxHP, w.Endless)
 	}
 	_, sixBoss := megaBossWorld(t, 6)
 	if sixBoss.MaxHP != 290000 {
 		t.Fatalf("six-player boss hp=%d", sixBoss.MaxHP)
+	}
+	_, _, practiceBoss := karityFixture(t)
+	if practiceBoss.MaxHP != 36000 {
+		t.Fatalf("test arena boss hp=%d", practiceBoss.MaxHP)
 	}
 	w.TickNum = int32(w.TotalTicks() - 1)
 	w.Advance()

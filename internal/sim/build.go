@@ -118,9 +118,13 @@ func BuildWorld(cat *content.CatalogData, p BuildParams) (*World, error) {
 			return nil, fmt.Errorf("unknown_character:%d", bp.CharacterID)
 		}
 		pl := buildPlayer(cat, w, bp, ch)
-		if mode.Name == "mega_boss" && ch.Name == "karity_boss_character" {
-
-			pl.MaxHP = 145000 * max(3, megaBossHumans) / 3
+		if ch.Name == "karity_boss_character" {
+			switch mode.Name {
+			case "mega_boss":
+				pl.MaxHP = ch.HitPoints * max(3, megaBossHumans) / 3
+			case "test_arena":
+				pl.MaxHP = 36000
+			}
 			pl.HP = pl.MaxHP
 		}
 		sx, sy := spawns[bp.Index][0], spawns[bp.Index][1]
