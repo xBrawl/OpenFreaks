@@ -1,0 +1,11 @@
+- name: hit_points
+  increasement_per_level_percent: 10
+  max_level: 5
+
+- name: damage
+  increasement_per_level_percent: 15
+  max_level: 5
+
+- name: speed
+  increasement_per_level_percent: 5
+  max_level: 5

@@ -1,0 +1,96 @@
+- name: open
+  tile_code: .
+  is_destructible_with_piercing: false
+  is_destructible_with_any: false
+  blocks_movement: false
+  blocks_projectiles: false
+  hides_hero: false
+
+- name: empty
+  tile_code: =
+  is_destructible_with_piercing: false
+  is_destructible_with_any: false
+  blocks_movement: true
+  blocks_projectiles: false
+  hides_hero: false
+
+- name: block
+  tile_code: M
+  is_destructible_with_piercing: true
+  is_destructible_with_any: false
+  blocks_movement: true
+  blocks_projectiles: true
+  hides_hero: false
+
+- name: block_1
+  tile_code: N
+  is_destructible_with_piercing: true
+  is_destructible_with_any: false
+  blocks_movement: true
+  blocks_projectiles: true
+  hides_hero: false
+
+- name: barrel
+  tile_code: P
+  is_destructible_with_piercing: true
+  is_destructible_with_any: false
+  blocks_movement: true
+  blocks_projectiles: true
+  hides_hero: false
+
+- name: invisible_indestructible
+  tile_code: J
+  is_destructible_with_piercing: false
+  is_destructible_with_any: false
+  blocks_movement: true
+  blocks_projectiles: true
+  hides_hero: false
+
+- name: forest
+  tile_code: F
+  respawn_seconds: 5
+  hit_points: 10000
+  is_destructible_with_piercing: true
+  is_destructible_with_any: true
+  blocks_movement: false
+  blocks_projectiles: false
+  hides_hero: true
+
+- name: water
+  tile_code: W
+  is_destructible_with_piercing: false
+  is_destructible_with_any: false
+  blocks_movement: true
+  blocks_projectiles: false
+  hides_hero: false
+
+- name: fence
+  tile_code: E
+  is_destructible_with_piercing: true
+  is_destructible_with_any: true
+  blocks_movement: true
+  blocks_projectiles: true
+  hides_hero: false
+
+- name: decoration1
+  tile_code: D
+  is_destructible_with_piercing: true
+  is_destructible_with_any: true
+  blocks_movement: true
+  blocks_projectiles: true
+  hides_hero: false
+
+- name: fast_platform
+  tile_code: w
+  dynamic_code: 1
+  lifetime_ms: 5000
+  is_destructible_with_any: false
+  is_destructible_with_piercing: false
+
+- name: fast_platform_fence
+  tile_code: n
+  dynamic_code: 2
+  lifetime_ms: 5000
+  blocks_movement: true
+  is_destructible_with_any: false
+  is_destructible_with_piercing: false

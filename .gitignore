@@ -1,0 +1,15 @@
+/openfreaks
+/openfreaks.exe
+/data/
+/logs/
+.env
+/deploy/config.local.json
+/deploy-stage-*/
+*.tar.gz
+/openfreaks-megaboss.exe
+
+.env
+.env.*
+!.env.example
+*.local
+*.replay.gz

@@ -1,0 +1,188 @@
+# TODO: set explosion in spawn_area_effect_name
+- name: death_cycle_bounce_projectile
+  speed: 6000
+  radius: 0
+  early_ticks: 2
+  gravity: 1900
+  is_indirect: true
+  is_homing_missile: true
+
+- name: sacrificial_shield_bounce_projectile
+  speed: 6000
+  radius: 0
+  early_ticks: 2
+  gravity: 1900
+  is_indirect: true
+  is_homing_missile: true
+
+- name: default_character_projectile
+  speed: 3100
+  radius: 0
+  early_ticks: 2
+  pushback_strength: 0
+  passes_environment: false
+  pierces_environment: false
+  pierces_characters: false
+
+- name: default_character_ultimate_projectile
+  speed: 10000
+  radius: 50
+  early_ticks: 2
+  pushback_strength: 70
+  passes_environment: false
+  pierces_environment: true
+  pierces_characters: true
+
+# WOLF
+- name: wolf_weapon_projectile
+  speed: 3500
+  radius: 150
+  early_ticks: 3
+  unique_property: 3
+  unique_property_value: 3
+  damage_only_with_one_projectile: true
+  pierces_characters: false
+
+- name: wolf_weapon_secondary_projectile
+  speed: 4130
+  radius: 150
+  early_ticks: 1
+  travel_type: 10
+  steer_strength: 4
+  steer_ignore_ticks: 2
+  home_distance: 8
+  steer_life_time: 40
+  unique_property: 3
+  unique_property_value: 3
+  pierces_characters: false
+
+- name: wolf_star_power_projectile
+  speed: 6000
+  radius: 150
+  early_ticks: 2
+  gravity: 1900
+  is_indirect: true
+  is_homing_missile: true
+
+- name: wolf_ultimate_upgrade_projectile
+  speed: 4130
+  radius: 150
+  early_ticks: 3
+  unique_property: 3
+  unique_property_value: 3
+  damage_only_with_one_projectile: true
+  pierces_characters: false
+  is_homing_missile: true
+
+# SINGER
+- name: singer_weapon_projectile
+  speed: 3500
+  radius: 150
+  gravity: 0
+  early_ticks: 0
+  pierces_characters: true
+  passes_environment: false
+  damage_only_with_one_projectile: true
+
+# JELLYFISH
+- name: jellyfish_weapon_projectile
+  chain_projectile_name: jellyfish_weapon_projectile2
+  speed: 3000
+  radius: 150
+  gravity: 0
+  early_ticks: 0
+  speed_change_percent: -20
+  speed_change_ticks: 20
+  boomerang_behaviour_flags: 1
+  is_boomerang: true
+
+- name: jellyfish_weapon_projectile2
+  speed: 2500
+  radius: 150
+  gravity: 0
+  early_ticks: 0
+  pierces_characters: true
+  passes_environment: true
+  is_boomerang: true
+
+- name: jellyfish_ultimate_projectile
+  speed: 1196
+  radius: 0
+  gravity: 170
+  early_ticks: 2
+  is_indirect: true
+
+# ANGEL WIND
+- name: angel_wind_projectile
+  chain_projectile_name: angel_wind_projectile2
+  chain_bullets: 3
+  chain_travel_distance: 16
+  speed: 4000
+  radius: 150
+  gravity: 0
+  early_ticks: 1
+
+- name: angel_wind_projectile2
+  speed: 4000
+  radius: 150
+  gravity: 0
+  early_ticks: 1
+
+- name: angel_wind_ultimate_projectile
+  speed: 4200
+  radius: 150
+  gravity: 0
+  early_ticks: 1
+
+# CLOWN VI
+- name: clown_weapon_projectile
+  chain_projectile_name: clown_weapon_projectile2
+  speed: 2800
+  radius: 150
+  gravity: 0
+  early_ticks: 1
+  speed_change_percent: -20
+  speed_change_ticks: 10
+  boomerang_behaviour_flags: 3
+  is_boomerang: true
+
+- name: clown_weapon_projectile2
+  speed: 2800
+  radius: 150
+  gravity: 0
+  early_ticks: 0
+  pierces_characters: true
+  passes_environment: true
+  is_boomerang: true
+
+- name: clown_ultimate_projectile
+  spawn_area_effect_name: clown_ultimate_area_effect_1
+  speed: 1739
+  radius: 0
+  gravity: 300
+  early_ticks: 1
+  is_indirect: true
+
+# BOTANIST
+- name: botanist_weapon_projectile
+  spawn_area_effect_name: botanist_weapon_area_effect
+  speed: 2800
+  radius: 0
+  gravity: 200
+  early_ticks: 1
+  is_indirect: true
+
+# BOTANIST PET
+- name: botanist_pet_weapon_projectile
+  speed: 2500
+  radius: 0
+  gravity: 0
+  early_ticks: 1
+
+# КАРИТИ
+- name: karity_spit_projectile
+  speed: 1500
+  radius: 90
+  gravity: 150
+  early_ticks: 2
+  is_indirect: true

@@ -1,0 +1,36 @@
+- name: hit_points_level_up
+  value: 15 # hit points percent
+  trigger_range: 4
+  can_be_picked_up: true
+
+- name: damage_level_up
+  value: 10 # damage percent
+  trigger_range: 4
+  can_be_picked_up: true
+
+- name: speed_level_up
+  value: 2 # speed percent
+  trigger_range: 4
+  can_be_picked_up: true
+
+- name: game_point
+  value: 1
+  value2: 0
+  trigger_range: 4
+  can_be_picked_up: true
+
+- name: angel_wind_feather
+  value: 20 # shield percentage
+  value2: 100 # shield ticks
+  life_time_ms: 5000
+  trigger_range: 3
+  can_be_picked_up: true
+
+- name: portal
+  value: 60 # warmup ticks
+  value2: 60 # active ticks
+  value3: 120 # cooldown ticks
+  life_time_ms: 12000
+  trigger_range: 3
+  first_object_name: portal_start_area_effect
+  second_object_name: portal_end_area_effect

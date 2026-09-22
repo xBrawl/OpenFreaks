@@ -1,0 +1,25 @@
+[Unit]
+Description=OpenFreaks main
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=freaks
+Group=freaks
+WorkingDirectory=/opt/openfreaks/current
+EnvironmentFile=/etc/openfreaks/server.env
+ExecStart=/opt/openfreaks/current/openfreaks --mode=main --config=/etc/openfreaks/config.json
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=45
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/openfreaks
+UMask=0077
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target

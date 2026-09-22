@@ -1,0 +1,51 @@
+- name: angel_wind_ultimate_upgrade_1
+  target_character_name: angel_wind_character
+  type:
+    name: reflective_shield
+    projectile_name: angel_wind_ultimate_projectile
+    damage_percent: 80 # percentage of reflected damage
+
+- name: jellyfish_ultimate_upgrade_1
+  target_character_name: jellyfish_character
+  type:
+    name: override_minion_death_area_effect
+    area_effect_name: jellyfish_pet_ultimate_death_area_effect
+    damage_percent: 50
+
+- name: singer_ultimate_upgrade_1
+  target_character_name: singer_character
+  type:
+    name: spot_explosion
+    area_effect_name: singer_spot_explosion_area_effect
+    damage_percent: 25
+    ticks: 120
+
+- name: clown_ultimate_upgrade_1
+  target_character_name: clown_character
+  type:
+    name: override_projectile_area_effect
+    area_effect_name: clown_ultimate_area_effect_2
+
+- name: horned_girl_ultimate_upgrade_1
+  target_character_name: horned_girl_character
+  type:
+    name: chained_skill
+    skill_name: horned_girl_ultimate_upgrade_skill
+
+- name: wolf_ultimate_upgrade_1
+  target_character_name: wolf_character
+  type:
+    name: spawn_projectiles_after_consecutive_skill
+    projectile_name: wolf_ultimate_upgrade_projectile
+    count: 3 # projectile count
+    casting_range: 15 # casting range
+    damage: 450 # damage percent of consecutive skill's damage
+
+- name: botanist_ultimate_upgrade_1
+  target_character_name: botanist_character
+  type:
+    name: trail_minion_spawn
+    area_effect_names: [ botanist_stunning_flower_area_effect, botanist_healing_flower_area_effect ]
+    ticks_between_spawn: 200
+    spawn_count: 1
+    max_spawn_count: 3

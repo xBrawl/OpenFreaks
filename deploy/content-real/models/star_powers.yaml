@@ -1,0 +1,130 @@
+- name: wolf_star_power_1
+  rarity_name: common
+  target_character_name: wolf_character
+  unlock_upgrade_tokens_spent: 4
+  type:
+    name: static_electricity
+    extra_speed: 20
+    speed_ticks: 40
+    freeze_strength: -10
+
+- name: wolf_star_power_2
+  rarity_name: common
+  target_character_name: wolf_character
+  unlock_upgrade_tokens_spent: 4
+  type:
+    name: attack_absorption
+    projectile_name: wolf_star_power_projectile
+    required_charge_up: 5
+    projectile_base_damage: 250
+    shield_percent: 3
+    shield_ticks: 100
+
+- name: singer_star_power_1
+  rarity_name: common
+  target_character_name: singer_character
+  unlock_upgrade_tokens_spent: 4
+  type:
+    name: attack_heal
+    heal_value: 200
+    consumable_shield_value: 50
+    consumable_shield_ticks: 100
+
+- name: singer_star_power_2
+  rarity_name: common
+  target_character_name: singer_character
+  unlock_upgrade_tokens_spent: 12
+  type:
+    name: attack_spot
+    spot_extra_damage_percent: 25
+    spot_ticks: 120
+
+- name: jellyfish_star_power_1
+  rarity_name: common
+  target_character_name: jellyfish_character
+  unlock_upgrade_tokens_spent: 4
+  type:
+    name: attack_freeze
+    freeze_strength: 20
+    freeze_duration: 20
+
+- name: jellyfish_star_power_2
+  rarity_name: common
+  target_character_name: jellyfish_character
+  unlock_upgrade_tokens_spent: 12
+  type:
+    name: following_minion_spawn
+    minion_character_name: jellyfish_pet_character
+    auto_spawn_delay_ticks: 250
+    count: 3
+
+- name: angel_wind_star_power_1
+  rarity_name: common
+  target_character_name: angel_wind_character
+  unlock_upgrade_tokens_spent: 4
+  type:
+    name: helping_feather
+    item_name: angel_wind_feather
+    charge_up_milliseconds: 2000
+    item_count_per_spawn: 1
+    max_item_count: 3
+
+- name: angel_wind_star_power_2
+  rarity_name: common
+  target_character_name: angel_wind_character
+  unlock_upgrade_tokens_spent: 12
+  type:
+    name: shield_after_caused_damage
+    shield_percent: 10
+    shield_ticks: 20
+
+- name: clown_star_power_1
+  rarity_name: common
+  target_character_name: clown_character
+  unlock_upgrade_tokens_spent: 4
+  type:
+    name: boomerang_projectile_damage
+    damage: 70
+
+- name: clown_star_power_2
+  rarity_name: common
+  target_character_name: clown_character
+  unlock_upgrade_tokens_spent: 12
+  type:
+    name: following_area_effect
+    area_effect_name: clown_following_area_effect
+
+- name: horned_girl_star_power_1
+  rarity_name: common
+  target_character_name: horned_girl_character
+  unlock_upgrade_tokens_spent: 4
+  type:
+    name: attack_heal
+    heal_value: 0
+    consumable_shield_value: 300
+    consumable_shield_ticks: 10
+
+- name: horned_girl_star_power_2
+  rarity_name: common
+  target_character_name: horned_girl_character
+  unlock_upgrade_tokens_spent: 12
+  type:
+    name: following_area_effect
+    area_effect_name: horned_girl_star_power_area_effect
+
+- name: botanist_star_power_1
+  rarity_name: common
+  target_character_name: botanist_character
+  unlock_upgrade_tokens_spent: 4
+  type:
+    name: override_attack_projectile_area_effect
+    projectile_area_effect_name: botanist_weapon_area_with_freeze_effect
+
+- name: botanist_star_power_2
+  rarity_name: common
+  target_character_name: botanist_character
+  unlock_upgrade_tokens_spent: 12
+  type:
+    name: following_minion_spawn
+    minion_character_name: botanist_pet_character
+    auto_spawn_delay_ticks: 200

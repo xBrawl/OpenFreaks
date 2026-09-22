@@ -1,0 +1,59 @@
+- name: matches_played
+  progress: [ 10, 15, 20 ]
+  rewards: [ 100, 150, 200 ]
+  is_character_specific: true
+  is_game_mode_specific: true
+
+- name: matches_in_team
+  progress: [ 10, 15, 20 ]
+  rewards: [ 100, 150, 200 ]
+  is_character_specific: true
+  is_game_mode_specific: true
+
+- name: wins
+  progress: [ 5, 8, 10 ]
+  rewards: [ 100, 150, 200 ]
+  is_character_specific: true
+  is_game_mode_specific: true
+
+- name: wins_no_death
+  progress: [ 3, 5, 8 ]
+  rewards: [ 200, 350, 500 ]
+  is_character_specific: true
+  is_game_mode_specific: true
+
+- name: kills
+  progress: [ 10, 20, 30 ]
+  rewards: [ 100, 250, 300 ]
+  is_character_specific: true
+  is_game_mode_specific: true
+
+- name: kills_with_ultimate
+  progress: [ 5, 10, 15 ]
+  rewards: [ 100, 250, 300 ]
+  is_character_specific: true
+  is_game_mode_specific: true
+
+- name: damage
+  progress: [ 10000, 20000, 50000 ]
+  rewards: [ 100, 200, 500 ]
+  is_character_specific: true
+  is_game_mode_specific: true
+
+- name: aftermatch_kudos
+  progress: [ 5, 8, 10 ]
+  rewards: [ 100, 150, 200 ]
+
+- name: kda
+  progress: [ 5, 8, 10 ]
+  rewards: [ 200, 250, 400 ]
+  is_character_specific: true
+  is_game_mode_specific: true
+
+- name: ultimate_usages
+  progress: [ 20, 30, 50 ]
+  rewards: [ 100, 200, 450 ]
+
+- name: dash_usages
+  progress: [ 15, 25, 30 ]
+  rewards: [ 100, 200, 450 ]

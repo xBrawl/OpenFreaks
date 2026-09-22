@@ -1,0 +1,170 @@
+{
+  "Main": {
+    "Compatibility": {
+      "sourceArchiveHash": "",
+      "acceptedClientBuilds": [
+        1
+      ],
+      "dialectVersion": "tcp-v1"
+    },
+    "Network": {
+      "tcpBind": "127.0.0.1:9609",
+      "tcpMaxFrameBytes": 33554432,
+      "tcpHandshakeTimeoutSeconds": 10,
+      "tcpReadTimeoutSeconds": 120,
+      "maxPendingSendBytes": 4194304,
+      "maxPendingSendMessages": 1024,
+      "internalHttpEnabled": true,
+      "internalHttpBind": "127.0.0.1:9709"
+    },
+    "Content": {
+      "mode": "Synthetic",
+      "root": "content",
+      "expectedFingerprint": "",
+      "allowSyntheticVisualPatch": false
+    },
+    "Simulation": {
+      "tickMilliseconds": 50,
+      "introTicks": 20,
+      "maxMatches": 16,
+      "maxPlayersPerMatch": 10,
+      "maxCatchUpTicks": 10,
+      "snapshotPolicy": "full",
+      "snapshotCadenceTicks": 1,
+      "rulesetVersion": "synthetic-ruleset-1",
+      "defaultSeedPolicy": "crypto"
+    },
+    "Persistence": {
+      "resultOutboxPath": "data/main-outbox",
+      "migrationPolicy": "applyOnStartup",
+      "connectionStringEnvironment": "XBRAWL_DATABASE_URL",
+      "databaseSchema": "xbrawl"
+    },
+    "Authentication": {
+      "credentialNamespace": "xbrawl",
+      "sessionPolicy": "single",
+      "grantTtlSeconds": 120,
+      "tokenSecret": "",
+      "tokenSecretEnvironment": "",
+      "internalServiceSecret": "",
+      "internalServiceSecretEnvironment": "",
+      "enableTestRegistration": false
+    },
+    "Testing": {
+      "enableBots": false,
+      "allowDebugBattleFlags": false,
+      "networkFaultProfile": "none"
+    },
+    "Diagnostics": {
+      "logLevel": "Information",
+      "redactedPacketTrace": false,
+      "metricsBind": ""
+    },
+    "BattleServer": {
+      "enabled": false,
+      "baseUrl": "http://127.0.0.1:9710",
+      "sharedSecret": "",
+      "sharedSecretEnvironment": "",
+      "timeoutSeconds": 5,
+      "maxRetries": 3,
+      "retryDelayMilliseconds": 250
+    },
+    "Matchmaking": {
+      "minPlayers": 1,
+      "statusIntervalMilliseconds": 1000,
+      "statusSecondsLeft": 30,
+      "allocationTimeoutSeconds": 30
+    }
+  },
+  "Battle": {
+    "Compatibility": {
+      "sourceArchiveHash": "",
+      "acceptedClientBuilds": [
+        1
+      ],
+      "dialectVersion": "udp-kcp-v1"
+    },
+    "Network": {
+      "tcpBind": "127.0.0.1:9610",
+      "tcpMaxFrameBytes": 33554432,
+      "tcpHandshakeTimeoutSeconds": 10,
+      "tcpReadTimeoutSeconds": 120,
+      "maxPendingSendBytes": 4194304,
+      "maxPendingSendMessages": 1024,
+      "internalHttpEnabled": true,
+      "internalHttpBind": "127.0.0.1:9710",
+      "udpBind": "127.0.0.1:9610",
+      "udpAdvertisedHost": "127.0.0.1",
+      "udpAdvertisedPort": 9610,
+      "maxPeers": 64,
+      "maxPeersPerAddress": 8,
+      "handshakeTimeoutSeconds": 10,
+      "peerTimeoutSeconds": 8
+    },
+    "Content": {
+      "mode": "Synthetic",
+      "root": "content",
+      "expectedFingerprint": "",
+      "allowSyntheticVisualPatch": false
+    },
+    "Simulation": {
+      "tickMilliseconds": 50,
+      "introTicks": 20,
+      "maxMatches": 16,
+      "maxPlayersPerMatch": 10,
+      "maxCatchUpTicks": 10,
+      "snapshotPolicy": "full",
+      "snapshotCadenceTicks": 1,
+      "rulesetVersion": "synthetic-ruleset-1",
+      "defaultSeedPolicy": "crypto"
+    },
+    "Persistence": {
+      "databasePath": "",
+      "resultOutboxPath": "data/battle-outbox",
+      "migrationPolicy": "applyOnStartup"
+    },
+    "Authentication": {
+      "credentialNamespace": "xbrawl",
+      "sessionPolicy": "single",
+      "grantTtlSeconds": 120,
+      "tokenSecret": "",
+      "tokenSecretEnvironment": "",
+      "internalServiceSecret": "",
+      "internalServiceSecretEnvironment": ""
+    },
+    "Testing": {
+      "enableBots": false,
+      "allowDebugBattleFlags": false,
+      "networkFaultProfile": "none"
+    },
+    "Diagnostics": {
+      "logLevel": "Information",
+      "redactedPacketTrace": false,
+      "metricsBind": ""
+    },
+    "BattleServer": {
+      "enabled": false,
+      "baseUrl": "",
+      "sharedSecret": "",
+      "sharedSecretEnvironment": "",
+      "timeoutSeconds": 5,
+      "maxRetries": 3,
+      "retryDelayMilliseconds": 250
+    },
+    "MainServer": {
+      "baseUrl": "http://127.0.0.1:9709",
+      "sharedSecret": "",
+      "sharedSecretEnvironment": "",
+      "timeoutSeconds": 5,
+      "maxRetries": 5,
+      "retryDelayMilliseconds": 500
+    },
+    "readinessTimeoutSeconds": 30,
+    "Matchmaking": {
+      "minPlayers": 1,
+      "statusIntervalMilliseconds": 1000,
+      "statusSecondsLeft": 30,
+      "allocationTimeoutSeconds": 30
+    }
+  }
+}

@@ -1,0 +1,233 @@
+# CHARACTER EFFECTS
+- name: hero_spawn
+  type_name: hero_spawn
+  radius: 300
+  time_ms: 2100
+
+# COMMON
+- name: healing_spawn
+  type_name: heal_delayed
+  radius: 600
+  heal_percent: 30
+  activating_ticks: 100
+  active_ticks: 80
+  cooldown_ticks: 40
+  time_ms: 10000000
+  same_area_effect_cannot_damage_ms: 4000
+
+- name: healing_following_area
+  type_name: cross_heal_team
+  radius: 600
+  time_ms: 10000000
+  same_area_effect_cannot_damage_ms: 1000
+
+# KING OF THE HILL
+- name: king_of_hill_area
+  type_name: effect
+  radius: 1000
+  time_ms: 600000
+  is_visible_outside_screen: true
+
+- name: king_of_hill_area_eruption
+  type_name: effect
+  radius: 1000
+  time_ms: 600000
+  is_visible_outside_screen: true
+
+- name: king_of_hill_area_gauge
+  type_name: effect
+  radius: 1000
+  time_ms: 600000
+  is_visible_outside_screen: true
+  is_frame_controlled_by_server: true
+
+- name: king_of_hill_area_capture
+  type_name: effect
+  radius: 1000
+  time_ms: 600000
+  is_visible_outside_screen: true
+
+- name: king_of_hill_area_complete
+  type_name: effect
+  radius: 1000
+  time_ms: 600000
+  is_visible_outside_screen: true
+
+# SINGER
+- name: singer_ultimate_area_effect
+  type_name: cross_heal_team
+  radius: 600
+  time_ms: 5000
+  heal: 100
+  spot_damage: [ 30, 120 ]
+  same_area_effect_cannot_damage_ms: 1000
+
+- name: singer_spot_explosion_area_effect
+  type_name: damage
+  radius: 700
+  time_ms: 700
+  damage: 1000
+
+- name: portal_start_area_effect
+  type_name: effect
+  radius: 600
+  time_ms: 600
+
+- name: portal_end_area_effect
+  type_name: effect
+  radius: 600
+  time_ms: 600
+
+# JELLYFISH
+- name: jellyfish_dash_start_area_effect
+  type_name: effect
+  radius: 600
+  time_ms: 2000
+
+- name: jellyfish_dash_end_area_effect
+  type_name: damage
+  radius: 600
+  time_ms: 2000
+
+  speed_change:
+    enemies: [ -20, 30 ]
+
+  madness_ticks: 1
+
+- name: jellyfish_pet_ultimate_death_area_effect
+  type_name: heal
+  radius: 150
+  time_ms: 700
+  heal: 500
+
+# CLOWN VI
+- name: clown_dash_area_effect
+  type_name: damage
+  radius: 600
+  time_ms: 2000
+  speed_change:
+    enemies: [ -40, 40 ]
+
+- name: clown_ultimate_area_effect_1
+  type_name: damage_heal
+  radius: 600
+  speed_change:
+    teammates: [ 50, 20 ]
+    enemies: [ -60, 20 ]
+  reload_speed_change: [ 50, 20 ]
+  time_ms: 5000
+  damage: 800
+
+- name: clown_ultimate_area_effect_2
+  type_name: damage_heal
+  radius: 600
+  reload_speed_change: [ 50, 20 ]
+  speed_change:
+    teammates: [ 50, 20 ]
+    enemies: [ -20, 20 ]
+  time_ms: 5000
+  damage: 800
+
+- name: clown_following_area_effect
+  type_name: damage
+  radius: 600
+  time_ms: 10000000
+  reload_speed_change: [ -30, 10 ]
+
+# BOTANIST
+- name: botanist_weapon_area_effect
+  type_name: damage_heal
+  radius: 600
+  time_ms: 1500
+  damage: 200
+  same_area_effect_cannot_damage_ms: 1000
+
+- name: botanist_weapon_area_with_freeze_effect
+  type_name: damage_heal
+  radius: 600
+  time_ms: 1500
+  damage: 200
+  speed_change:
+    enemies: [ -20, 20 ]
+  same_area_effect_cannot_damage_ms: 1000
+
+- name: botanist_ultimate_area_effect
+  type_name: damage_heal
+  radius: 600
+  time_ms: 3000
+  damage: 50
+  heal: 200
+  same_area_effect_cannot_damage_ms: 1000
+
+- name: botanist_stunning_flower_area_effect
+  type_name: damage
+  radius: 300
+  time_ms: 5000
+  damage: 150
+  same_area_effect_cannot_damage_ms: 1000
+
+- name: botanist_healing_flower_area_effect
+  type_name: heal
+  radius: 300
+  time_ms: 5000
+  consumable_shield: 200
+  consumable_shield_ticks: 20
+  same_area_effect_cannot_damage_ms: 1000
+
+# BOTANIST PET
+- name: botanist_pet_weapon_area_effect
+  type_name: damage
+  radius: 900
+  time_ms: 300
+
+# HORNED GIRL
+- name: horned_girl_ultimate_area_effect
+  type_name: pushback
+  radius: 900
+  time_ms: 4000
+  pushback_strength: -150
+  pushback_dead_zone: 600
+
+- name: horned_girl_star_power_area_effect
+  type_name: damage
+  damage: 100
+  radius: 300
+  time_ms: 10000000
+  speed_change:
+    enemies: [ -20, 10 ]
+
+- name: horned_girl_upgraded_ultimate_area_effect
+  type_name: damage
+  radius: 600
+  time_ms: 1000
+  damage_decline: [ 30, 40 ]
+
+# ANGEL WIND
+- name: angel_wind_ultimate_area_effect
+  type_name: damage
+  radius: 600
+  time_ms: 1000
+  spot_damage: [ 20, 40 ]
+  same_area_effect_cannot_damage_ms: 1000
+  area_effect_cannot_affect_owner: true
+
+# КАРИТИ
+- name: karity_slam_area
+  type_name: damage
+  radius: 760
+  time_ms: 600
+  damage: 900
+  pushback_strength: 900
+  pushback_dead_zone: 140
+  same_area_effect_cannot_damage_ms: 1000
+  area_effect_cannot_affect_owner: true
+
+# Запрет действий — это стан: madness_ticks снимает управление на 2 секунды.
+- name: karity_silence_area
+  type_name: damage
+  radius: 640
+  time_ms: 500
+  damage: 140
+  madness_ticks: 40
+  same_area_effect_cannot_damage_ms: 2000
+  area_effect_cannot_affect_owner: true

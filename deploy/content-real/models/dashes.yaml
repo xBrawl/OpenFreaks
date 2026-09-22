@@ -1,0 +1,72 @@
+- name: jellyfish_dash
+  rarity_name: common
+  target_character_name: jellyfish_character
+  type:
+    name: skill
+    skill_name: jellyfish_dash
+  cool_down_ticks: 200
+  interrupts_actions: true
+  stop_movement: true
+
+- name: angel_wind_dash
+  rarity_name: common
+  target_character_name: angel_wind_character
+  type:
+    name: skill
+    skill_name: angel_wind_dash
+  cool_down_ticks: 200
+  interrupts_actions: true
+  stop_movement: true
+
+- name: clown_dash
+  rarity_name: common
+  target_character_name: clown_character
+  type:
+    name: skill
+    skill_name: clown_dash
+  cool_down_ticks: 200
+  interrupts_actions: true
+  stop_movement: true
+
+- name: botanist_dash
+  rarity_name: common
+  target_character_name: botanist_character
+  type:
+    name: skill
+    skill_name: botanist_dash
+  cool_down_ticks: 200
+  interrupts_actions: true
+  stop_movement: true
+
+- name: horned_girl_dash
+  rarity_name: common
+  target_character_name: horned_girl_character
+  type:
+    name: skill
+    skill_name: horned_girl_dash
+  cool_down_ticks: 10
+  interrupts_actions: true
+  stop_movement: true
+
+- name: singer_dash
+  rarity_name: common
+  target_character_name: singer_character
+  type:
+    name: skill
+    skill_name: singer_dash
+  cool_down_ticks: 200
+  interrupts_actions: true
+  stop_movement: true
+
+- name: wolf_dash
+  rarity_name: common
+  target_character_name: wolf_character
+  type:
+    name: dash_low_hit_points
+    target_lower_than: 50
+    speed_change_percent: 50
+    speed_change_ticks: 40
+  active_ticks: 150
+  casting_range: 30
+  cool_down_ticks: 200
+  interrupts_actions: false

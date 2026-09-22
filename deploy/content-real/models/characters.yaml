@@ -1,0 +1,218 @@
+- name: default_character
+  hero_type_name: minion_find_teammates
+  weapon_skill_name: default_character_weapon
+  ultimate_skill_name: default_character_ultimate
+  speed: 720
+  hit_points: 3800
+  ultimate_charge_multiplier: 134
+  ultimate_charge_ultimate_multiplier: 112
+  charge_ultimate_automatically: 0
+  collision_radius: 120
+  projectile_start_z: 450
+
+- name: wolf_character
+  rarity_name: rare
+  role_name: attack
+  hero_type_name: hero
+  weapon_skill_name: wolf_weapon
+  ultimate_skill_name: wolf_ultimate
+  speed: 700
+  hit_points: 3000
+  ultimate_charge_multiplier: 134
+  ultimate_charge_ultimate_multiplier: 112
+  charge_ultimate_automatically: 0
+  collision_radius: 120
+  projectile_start_z: 450
+
+- name: singer_character
+  rarity_name: rare
+  role_name: support
+  hero_type_name: hero
+  weapon_skill_name: singer_weapon
+  ultimate_skill_name: singer_ultimate
+  speed: 690
+  hit_points: 3500
+  ultimate_charge_multiplier: 120
+  ultimate_charge_ultimate_multiplier: 112
+  charge_ultimate_automatically: 0
+  collision_radius: 120
+  projectile_start_z: 450
+
+- name: jellyfish_character
+  rarity_name: epic
+  role_name: defense
+  hero_type_name: hero
+  weapon_skill_name: jellyfish_weapon
+  ultimate_skill_name: jellyfish_ultimate
+  speed: 640
+  hit_points: 6000
+  ultimate_charge_multiplier: 120
+  ultimate_charge_ultimate_multiplier: 112
+  collision_radius: 120
+  projectile_start_z: 300
+
+- name: jellyfish_pet_ultimate_character
+  hero_type_name: minion_find_teammates
+  weapon_skill_name: jellyfish_pet_weapon
+  ultimate_skill_name: jellyfish_pet_ultimate_dummy
+  speed: 870
+  hit_points: 5000
+  hit_points_lost_percent_per_second: 6
+  collision_radius: 80
+
+- name: jellyfish_pet_character
+  hero_type_name: minion_find_teammates
+  weapon_skill_name: jellyfish_pet_weapon
+  ultimate_skill_name: jellyfish_pet_ultimate_dummy
+  speed: 870
+  hit_points: 2500
+  hit_points_regeneration_percent_per_second: 4
+  collision_radius: 80
+
+- name: angel_wind_character
+  rarity_name: common
+  role_name: defense
+  hero_type_name: hero
+  weapon_skill_name: angel_wind_weapon
+  ultimate_skill_name: angel_wind_ultimate
+  speed: 650
+  hit_points: 3600
+  ultimate_charge_multiplier: 120
+  ultimate_charge_ultimate_multiplier: 112
+  charge_ultimate_automatically: 0
+  collision_radius: 120
+  projectile_start_z: 450
+
+- name: clown_character
+  rarity_name: common
+  role_name: defense
+  hero_type_name: hero
+  weapon_skill_name: clown_weapon
+  ultimate_skill_name: clown_ultimate
+  speed: 730
+  hit_points: 4700
+  ultimate_charge_multiplier: 120
+  ultimate_charge_ultimate_multiplier: 112
+  charge_ultimate_automatically: 0
+  collision_radius: 120
+  projectile_start_z: 450
+
+- name: botanist_character
+  rarity_name: common
+  role_name: defense
+  hero_type_name: hero
+  weapon_skill_name: botanist_weapon
+  ultimate_skill_name: botanist_ultimate
+  speed: 770
+  hit_points: 3000
+  ultimate_charge_multiplier: 120
+  ultimate_charge_ultimate_multiplier: 112
+  charge_ultimate_automatically: 0
+  collision_radius: 120
+  projectile_start_z: 450
+
+- name: botanist_pet_character
+  hero_type_name: minion_building
+  weapon_skill_name: botanist_pet_weapon
+  ultimate_skill_name: botanist_pet_ultimate_dummy
+  speed: 0
+  hit_points: 5000
+  hit_points_lost_percent_per_second: 10
+  ultimate_charge_multiplier: 120
+  ultimate_charge_ultimate_multiplier: 112
+  charge_ultimate_automatically: 0
+  collision_radius: 140
+  projectile_start_z: 100
+
+- name: horned_girl_character
+  rarity_name: common
+  role_name: defense
+  hero_type_name: hero
+  weapon_skill_name: horned_girl_weapon
+  ultimate_skill_name: horned_girl_ultimate
+  speed: 700
+  hit_points: 4700
+  ultimate_charge_multiplier: 120
+  ultimate_charge_ultimate_multiplier: 112
+  charge_ultimate_automatically: 0
+  collision_radius: 120
+  projectile_start_z: 450
+
+- name: training_dummy_small
+  hero_type_name: minion_building_charges_ultimate
+  speed: 0
+  hit_points: 4000
+  collision_radius: 120
+  projectile_start_z: 350
+
+- name: training_dummy_medium
+  hero_type_name: minion_building_charges_ultimate
+  speed: 0
+  hit_points: 4000
+  collision_radius: 150
+  projectile_start_z: 350
+
+- name: training_dummy_big
+  hero_type_name: minion_building_charges_ultimate
+  speed: 0
+  hit_points: 100000
+  collision_radius: 200
+  projectile_start_z: 350
+
+- name: training_dummy_shooting
+  hero_type_name: minion_building_charges_ultimate
+  weapon_skill_name: dummy_shooting_weapon
+  speed: 0
+  hit_points: 4000
+  collision_radius: 120
+  projectile_start_z: 350
+
+- name: mechanic_turret_character
+  hero_type_name: minion_building
+  speed: 0
+  hit_points: 60000
+  weapon_skill_name: mechanic_turret_weapon
+  collision_radius: 120
+  projectile_start_z: 220
+
+- name: loot_box
+  hero_type_name: loot_box
+  weapon_skill_name:
+  ultimate_skill_name:
+  speed: 0
+  hit_points: 4300
+  ultimate_charge_multiplier:
+  ultimate_charge_ultimate_multiplier:
+  charge_ultimate_automatically:
+  collision_radius: 145
+  projectile_start_z: 350
+
+- name: laser_ball
+  hero_type_name: laser_ball
+  speed: 0
+  hit_points: 1
+  collision_radius: 120
+
+# КАРИТИ — босс кооперативного режима и тестовой арены.
+# hero_type_name не hero намеренно: героем его нельзя выбрать в меню, и клиент
+# не считает его бандл обязательным для старта боя.
+- name: karity_boss_character
+  hero_type_name: minion_find_enemies
+  weapon_skill_name: karity_spit
+  ultimate_skill_name: karity_jump
+  speed: 380
+  hit_points: 36000
+  ultimate_charge_multiplier: 100
+  ultimate_charge_ultimate_multiplier: 100
+  charge_ultimate_automatically: 26
+  collision_radius: 360
+  projectile_start_z: 700
+
+- name: karity_minion_character
+  hero_type_name: minion_find_enemies
+  weapon_skill_name: karity_minion_bite
+  ultimate_skill_name: karity_minion_dummy
+  speed: 840
+  hit_points: 900
+  hit_points_lost_percent_per_second: 4
+  collision_radius: 100

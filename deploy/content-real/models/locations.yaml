@@ -1,0 +1,371 @@
+- name: lake_31_31
+  location_theme_name: default
+  game_mode_name: bounty
+  map_name: lake_31_31_bounty
+
+- name: default
+  location_theme_name: default
+  game_mode_name: showdown
+  map_name: default
+
+#- name: tutorial
+#  location_theme_name: default
+#  game_mode_name: tutorial
+#  map_name: tutorial
+#  is_hidden: true
+
+- name: default_31_31
+  location_theme_name: default
+  game_mode_name: showdown
+  map_name: default_31_31
+  is_hidden: false
+
+- name: default_45_45
+  location_theme_name: default
+  game_mode_name: showdown
+  map_name: default_45_45
+  is_hidden: true
+
+- name: default_61_61
+  location_theme_name: default
+  game_mode_name: showdown
+  map_name: default_61_61
+  is_hidden: true
+
+#- name: default_ball
+#  location_theme_name: default
+#  game_mode_name: brawl_ball
+#  map_name: default_ball
+
+######## ARENA
+- name: duel_duo_lobby
+  location_theme_name: default
+  game_mode_name: duel_duo_showdown_lobby
+  map_name: duel_duo_lobby
+  round_location_names: [ arena_aim_31_31_duo, arena_threeisland_31_31_duo, arena_twoway_31_31_duo, arena_bubble_31_31_duo, arena_angles_31_31_duo, arena_lake_31_31_duo, arena_river_31_31_duo, arena_onebridge_31_31_duo ]
+
+- name: duel_trio_lobby
+  location_theme_name: default
+  game_mode_name: duel_trio_showdown_lobby
+  map_name: duel_trio_lobby
+  round_location_names: [ arena_aim_31_31_trio, arena_threeisland_31_31_trio, arena_twoway_31_31_trio, arena_bubble_31_31_trio, arena_angles_31_31_trio, arena_lake_31_31_trio, arena_river_31_31_trio, arena_onebridge_31_31_trio ]
+
+
+
+####### SHOWDOWN
+
+# DUO
+- name: aim_45_45_duo
+  location_theme_name: default
+  game_mode_name: duo_showdown
+  map_name: aim_45_45
+
+- name: bubble_45_45_duo
+  location_theme_name: default
+  game_mode_name: duo_showdown
+  map_name: bubble_45_45
+
+- name: flower_45_45_duo
+  location_theme_name: default
+  game_mode_name: duo_showdown
+  map_name: flower_45_45
+
+- name: forest_45_45_showdown
+  location_theme_name: default
+  game_mode_name: duo_showdown
+  map_name: forest_45_45
+
+- name: river_45_45_duo
+  location_theme_name: default
+  game_mode_name: duo_showdown
+  map_name: river_45_45
+
+- name: bridges_45_45_duo
+  location_theme_name: default
+  game_mode_name: duo_showdown
+  map_name: bridges_45_45
+
+# TRIO
+- name: aim_45_45_trio
+  location_theme_name: default
+  game_mode_name: trio_showdown
+  map_name: aim_45_45
+
+- name: bubble_45_45_trio
+  location_theme_name: default
+  game_mode_name: trio_showdown
+  map_name: bubble_45_45
+
+- name: flower_45_45_trio
+  location_theme_name: default
+  game_mode_name: trio_showdown
+  map_name: flower_45_45
+
+- name: forest_45_45_trio
+  location_theme_name: default
+  game_mode_name: trio_showdown
+  map_name: forest_45_45
+
+- name: river_45_45_trio
+  location_theme_name: default
+  game_mode_name: trio_showdown
+  map_name: river_45_45
+
+- name: bridges_45_45_trio
+  location_theme_name: default
+  game_mode_name: trio_showdown
+  map_name: bridges_45_45
+
+####### BOUNTY
+
+- name: bubble_31_31
+  location_theme_name: default
+  game_mode_name: showdown
+  map_name: bubble_31_31_bounty_LR
+
+- name: angles_31_31
+  location_theme_name: default
+  game_mode_name: bounty
+  map_name: angles_31_31_bounty_LR
+
+- name: onebridge_31_31
+  location_theme_name: default
+  game_mode_name: bounty
+  map_name: onebridge_31_31
+
+- name: river_31_31_bounty
+  location_theme_name: default
+  game_mode_name: bounty
+  map_name: river_31_31_bounty
+
+- name: aim_45_45_bounty
+  location_theme_name: default
+  game_mode_name: bounty
+  map_name: aim_45_45_bounty
+
+- name: forest_45_45_bounty
+  location_theme_name: default
+  game_mode_name: bounty
+  map_name: forest_45_45_bounty
+
+- name: flower_45_45_bounty
+  location_theme_name: default
+  game_mode_name: bounty
+  map_name: flower_45_45_bounty
+
+- name: river_45_45_bounty
+  location_theme_name: default
+  game_mode_name: bounty
+  map_name: river_45_45_bounty
+
+- name: bridges_45_45_bounty
+  location_theme_name: default
+  game_mode_name: bounty
+  map_name: bridges_45_45_bounty
+
+- name: bubble_45_45
+  location_theme_name: default
+  game_mode_name: bounty
+  map_name: bubble_45_45_bounty
+
+####### KING OF THE HILL 3v3
+
+- name: aim_31_31_king_2_3
+  location_theme_name: default
+  game_mode_name: king_of_the_hill_2_3
+  map_name: aim_31_31_area
+
+- name: littletouch_31_31_king_2_3
+  location_theme_name: default
+  game_mode_name: king_of_the_hill_2_3
+  map_name: littletouch_31_31_area
+
+- name: river_31_31_king_2_3
+  location_theme_name: default
+  game_mode_name: king_of_the_hill_2_3
+  map_name: river_31_31_area
+
+- name: stealth_31_31_king_2_3
+  location_theme_name: default
+  game_mode_name: king_of_the_hill_2_3
+  map_name: stealth_31_31_area
+#
+######## KING OF THE HILL 5v5
+
+- name: aim_31_31_2_5
+  location_theme_name: default
+  game_mode_name: king_of_the_hill_2_5
+  map_name: aim_31_31_area
+
+- name: littletouch_31_31_2_5
+  location_theme_name: default
+  game_mode_name: king_of_the_hill_2_5
+  map_name: littletouch_31_31_area
+
+- name: river_31_31_king_2_5
+  location_theme_name: default
+  game_mode_name: king_of_the_hill_2_5
+  map_name: river_31_31_area
+
+- name: stealth_31_31_2_5
+  location_theme_name: default
+  game_mode_name: king_of_the_hill_2_5
+  map_name: stealth_31_31_area
+
+####### KING OF THE HILL 2v2v2v2
+
+- name: river_45_45_king_4_2
+  location_theme_name: default
+  game_mode_name: king_of_the_hill_4_2
+  map_name: river_45_45_area
+
+- name: forest_45_45_king_4_2
+  location_theme_name: default
+  game_mode_name: king_of_the_hill_4_2
+  map_name: forest_45_45_area
+
+- name: flower_45_45_king_4_2
+  location_theme_name: default
+  game_mode_name: king_of_the_hill_4_2
+  map_name: flower_45_45_area
+
+- name: aim_45_45_king_4_2
+  location_theme_name: default
+  game_mode_name: king_of_the_hill_4_2
+  map_name: aim_45_45_area
+
+####### KING OF THE HILL 3v3v3v3
+
+- name: river_45_45_king_4_3
+  location_theme_name: default
+  game_mode_name: king_of_the_hill_4_3
+  map_name: river_45_45_area
+
+- name: forest_45_45_king_4_3
+  location_theme_name: default
+  game_mode_name: king_of_the_hill_4_3
+  map_name: forest_45_45_area
+
+- name: flower_45_45_king_4_3
+  location_theme_name: default
+  game_mode_name: king_of_the_hill_4_3
+  map_name: flower_45_45_area
+
+- name: aim_45_45_king_4_3
+  location_theme_name: default
+  game_mode_name: king_of_the_hill_4_3
+  map_name: aim_45_45_area
+
+## DUEL DUO LOCATIONS
+- name: arena_aim_31_31_duo
+  location_theme_name: default
+  game_mode_name: duel_duo_showdown
+  map_name: aim_31_31
+  is_hidden: true
+
+- name: arena_threeisland_31_31_duo
+  location_theme_name: default
+  game_mode_name: duel_duo_showdown
+  map_name: threeisland_31_31
+  is_hidden: true
+
+- name: arena_twoway_31_31_duo
+  location_theme_name: default
+  game_mode_name: duel_duo_showdown
+  map_name: twoway_31_31
+  is_hidden: true
+
+- name: arena_bubble_31_31_duo
+  location_theme_name: default
+  game_mode_name: duel_duo_showdown
+  map_name: bubble_31_31_LR
+  is_hidden: true
+
+- name: arena_angles_31_31_duo
+  location_theme_name: default
+  game_mode_name: duel_duo_showdown
+  map_name: angles_31_31_LR
+  is_hidden: true
+
+- name: arena_lake_31_31_duo
+  location_theme_name: default
+  game_mode_name: duel_duo_showdown
+  map_name: lake_31_31
+  is_hidden: true
+
+- name: arena_river_31_31_duo
+  location_theme_name: default
+  game_mode_name: duel_duo_showdown
+  map_name: river_31_31
+  is_hidden: true
+
+- name: arena_onebridge_31_31_duo
+  location_theme_name: default
+  game_mode_name: duel_duo_showdown
+  map_name: onebridge_31_31
+  is_hidden: true
+
+
+## DUEL TRIO LOCATIONS
+
+- name: arena_aim_31_31_trio
+  location_theme_name: default
+  game_mode_name: duel_trio_showdown
+  map_name: aim_31_31
+  is_hidden: true
+
+- name: arena_threeisland_31_31_trio
+  location_theme_name: default
+  game_mode_name: duel_trio_showdown
+  map_name: threeisland_31_31
+  is_hidden: true
+
+- name: arena_twoway_31_31_trio
+  location_theme_name: default
+  game_mode_name: duel_trio_showdown
+  map_name: twoway_31_31
+  is_hidden: true
+
+- name: arena_bubble_31_31_trio
+  location_theme_name: default
+  game_mode_name: duel_trio_showdown
+  map_name: bubble_31_31_LR
+  is_hidden: true
+
+- name: arena_angles_31_31_trio
+  location_theme_name: default
+  game_mode_name: duel_trio_showdown
+  map_name: angles_31_31_LR
+  is_hidden: true
+
+- name: arena_lake_31_31_trio
+  location_theme_name: default
+  game_mode_name: duel_trio_showdown
+  map_name: lake_31_31
+  is_hidden: true
+
+- name: arena_river_31_31_trio
+  location_theme_name: default
+  game_mode_name: duel_trio_showdown
+  map_name: river_31_31
+  is_hidden: true
+
+- name: arena_onebridge_31_31_trio
+  location_theme_name: default
+  game_mode_name: duel_trio_showdown
+  map_name: onebridge_31_31
+  is_hidden: true
+- name: experimental_football
+  location_theme_name: default
+  game_mode_name: ball
+  map_name: experimental_football
+
+- name: experimental_test_arena
+  location_theme_name: default
+  game_mode_name: test_arena
+  map_name: aim_31_31
+
+- name: mega_boss_karity
+  location_theme_name: default
+  game_mode_name: mega_boss
+  map_name: aim_31_31

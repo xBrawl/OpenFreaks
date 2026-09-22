@@ -1,0 +1,25 @@
+files:
+- models/currencies.yaml
+- models/character_progression.yaml
+- models/gacha_boxes.yaml
+- models/shop_offers.yaml
+- models/battle_pass.yaml
+- models/alliance_roles.yaml
+- models/missions.yaml
+- models/game_modes.yaml
+- models/map_tiles.yaml
+- models/maps.yaml
+- models/location_themes.yaml
+- models/locations.yaml
+- models/items.yaml
+- models/area_effects.yaml
+- models/projectiles.yaml
+- models/skills.yaml
+- models/character_stats.yaml
+- models/characters.yaml
+- models/ultimate_upgrades.yaml
+- models/star_powers.yaml
+- models/dashes.yaml
+- models/augments.yaml
+- models/skins.yaml
+checksum: 329a0b6c20175a404328679c912270ed6deafa52ad5044217e6237c4a054c655

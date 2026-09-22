@@ -1,0 +1,183 @@
+{
+  "Main": {
+    "Compatibility": {
+      "sourceArchiveHash": "",
+      "acceptedClientBuilds": [
+        1
+      ],
+      "dialectVersion": "tcp-v1"
+    },
+    "Network": {
+      "tcpBind": "0.0.0.0:9609",
+      "tcpMaxFrameBytes": 33554432,
+      "tcpHandshakeTimeoutSeconds": 10,
+      "tcpReadTimeoutSeconds": 120,
+      "maxPendingSendBytes": 4194304,
+      "maxPendingSendMessages": 1024,
+      "internalHttpEnabled": true,
+      "internalHttpBind": "0.0.0.0:9709",
+      "webSocketBind": "0.0.0.0:9729",
+      "webSocketOrigins": [
+        "http://localhost:8000",
+        "http://127.0.0.1:8000"
+      ]
+    },
+    "Content": {
+      "mode": "Imported",
+      "root": "/app/content",
+      "expectedFingerprint": "",
+      "allowSyntheticVisualPatch": false
+    },
+    "Simulation": {
+      "tickMilliseconds": 50,
+      "introTicks": 20,
+      "maxMatches": 16,
+      "maxPlayersPerMatch": 10,
+      "maxCatchUpTicks": 10,
+      "snapshotPolicy": "full",
+      "snapshotCadenceTicks": 1,
+      "rulesetVersion": "imported-ruleset-1",
+      "defaultSeedPolicy": "crypto"
+    },
+    "Persistence": {
+      "resultOutboxPath": "/app/data/main-outbox",
+      "migrationPolicy": "applyOnStartup",
+      "connectionStringEnvironment": "XBRAWL_DATABASE_URL",
+      "databaseSchema": "xbrawl"
+    },
+    "Authentication": {
+      "credentialNamespace": "xbrawl",
+      "sessionPolicy": "single",
+      "grantTtlSeconds": 120,
+      "tokenSecret": "",
+      "tokenSecretEnvironment": "XBRAWL_TOKEN_SECRET",
+      "internalServiceSecret": "",
+      "internalServiceSecretEnvironment": "XBRAWL_INTERNAL_SECRET",
+      "enableTestRegistration": true
+    },
+    "Testing": {
+      "enableBots": true,
+      "allowDebugBattleFlags": false,
+      "networkFaultProfile": "none",
+      "enableBalanceOverrides": true
+    },
+    "Diagnostics": {
+      "logLevel": "Information",
+      "redactedPacketTrace": false,
+      "metricsBind": ""
+    },
+    "BattleServer": {
+      "enabled": true,
+      "baseUrl": "http://battle:9710",
+      "sharedSecret": "",
+      "sharedSecretEnvironment": "XBRAWL_INTERNAL_SECRET",
+      "timeoutSeconds": 5,
+      "maxRetries": 3,
+      "retryDelayMilliseconds": 250
+    },
+    "Matchmaking": {
+      "minPlayers": 1,
+      "statusIntervalMilliseconds": 1000,
+      "statusSecondsLeft": 30,
+      "allocationTimeoutSeconds": 30,
+      "botFillSeconds": 12,
+      "battleResultGraceSeconds": 120
+    }
+  },
+  "Battle": {
+    "Compatibility": {
+      "sourceArchiveHash": "",
+      "acceptedClientBuilds": [
+        1
+      ],
+      "dialectVersion": "udp-kcp-v1"
+    },
+    "Network": {
+      "tcpBind": "0.0.0.0:9610",
+      "tcpMaxFrameBytes": 33554432,
+      "tcpHandshakeTimeoutSeconds": 10,
+      "tcpReadTimeoutSeconds": 120,
+      "maxPendingSendBytes": 4194304,
+      "maxPendingSendMessages": 1024,
+      "internalHttpEnabled": true,
+      "internalHttpBind": "0.0.0.0:9710",
+      "udpBind": "0.0.0.0:9610",
+      "udpAdvertisedHost": "127.0.0.1",
+      "udpAdvertisedPort": 9610,
+      "maxPeers": 64,
+      "maxPeersPerAddress": 32,
+      "handshakeTimeoutSeconds": 10,
+      "peerTimeoutSeconds": 8,
+      "webSocketBind": "0.0.0.0:9730",
+      "webSocketOrigins": [
+        "http://localhost:8000",
+        "http://127.0.0.1:8000"
+      ]
+    },
+    "Content": {
+      "mode": "Imported",
+      "root": "/app/content",
+      "expectedFingerprint": "",
+      "allowSyntheticVisualPatch": false
+    },
+    "Simulation": {
+      "tickMilliseconds": 50,
+      "introTicks": 20,
+      "maxMatches": 16,
+      "maxPlayersPerMatch": 10,
+      "maxCatchUpTicks": 10,
+      "snapshotPolicy": "full",
+      "snapshotCadenceTicks": 1,
+      "rulesetVersion": "imported-ruleset-1",
+      "defaultSeedPolicy": "crypto"
+    },
+    "Persistence": {
+      "databasePath": "",
+      "resultOutboxPath": "/app/data/battle-outbox",
+      "migrationPolicy": "applyOnStartup"
+    },
+    "Authentication": {
+      "credentialNamespace": "xbrawl",
+      "sessionPolicy": "single",
+      "grantTtlSeconds": 120,
+      "tokenSecret": "",
+      "tokenSecretEnvironment": "XBRAWL_TOKEN_SECRET",
+      "internalServiceSecret": "",
+      "internalServiceSecretEnvironment": "XBRAWL_INTERNAL_SECRET"
+    },
+    "Testing": {
+      "enableBots": false,
+      "allowDebugBattleFlags": false,
+      "networkFaultProfile": "none"
+    },
+    "Diagnostics": {
+      "logLevel": "Information",
+      "redactedPacketTrace": false,
+      "metricsBind": ""
+    },
+    "BattleServer": {
+      "enabled": false,
+      "baseUrl": "",
+      "sharedSecret": "",
+      "sharedSecretEnvironment": "",
+      "timeoutSeconds": 5,
+      "maxRetries": 3,
+      "retryDelayMilliseconds": 250
+    },
+    "MainServer": {
+      "baseUrl": "http://main:9709",
+      "sharedSecret": "",
+      "sharedSecretEnvironment": "XBRAWL_INTERNAL_SECRET",
+      "timeoutSeconds": 5,
+      "maxRetries": 5,
+      "retryDelayMilliseconds": 500
+    },
+    "readinessTimeoutSeconds": 30,
+    "Matchmaking": {
+      "minPlayers": 1,
+      "statusIntervalMilliseconds": 1000,
+      "statusSecondsLeft": 30,
+      "allocationTimeoutSeconds": 30
+    }
+  }
+}

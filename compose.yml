@@ -1,0 +1,71 @@
+name: openfreaks
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-xbrawl}
+      POSTGRES_USER: ${POSTGRES_USER:-xbrawl}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run deploy/init-env.ps1 or deploy/init-env.sh}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-xbrawl} -d ${POSTGRES_DB:-xbrawl}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  battle:
+    build:
+      context: .
+      target: battle
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      XBRAWL_TOKEN_SECRET: ${XBRAWL_TOKEN_SECRET:?Generate .env first}
+      XBRAWL_INTERNAL_SECRET: ${XBRAWL_INTERNAL_SECRET:?Generate .env first}
+      XBRAWL_BATTLE_ADVERTISED_HOST: ${XBRAWL_BATTLE_ADVERTISED_HOST:-127.0.0.1}
+      XBRAWL_BATTLE_ADVERTISED_PORT: ${XBRAWL_BATTLE_ADVERTISED_PORT:-9610}
+    ports:
+      - "${BIND_HOST:-0.0.0.0}:${BATTLE_UDP_PORT:-9610}:9610/udp"
+      - "${WEB_BIND_HOST:-127.0.0.1}:${BATTLE_WS_PORT:-9730}:9730/tcp"
+    volumes:
+      - battle-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9710/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  main:
+    build:
+      context: .
+      target: main
+    restart: unless-stopped
+    stop_grace_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      battle:
+        condition: service_healthy
+    environment:
+      XBRAWL_DATABASE_URL: postgres://${POSTGRES_USER:-xbrawl}:${POSTGRES_PASSWORD:?Run deploy/init-env.ps1 or deploy/init-env.sh}@postgres:5432/${POSTGRES_DB:-xbrawl}?sslmode=disable
+      XBRAWL_TOKEN_SECRET: ${XBRAWL_TOKEN_SECRET:?Generate .env first}
+      XBRAWL_INTERNAL_SECRET: ${XBRAWL_INTERNAL_SECRET:?Generate .env first}
+    ports:
+      - "${BIND_HOST:-0.0.0.0}:${MAIN_TCP_PORT:-9609}:9609/tcp"
+      - "${WEB_BIND_HOST:-127.0.0.1}:${MAIN_WS_PORT:-9729}:9729/tcp"
+    volumes:
+      - main-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9709/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  postgres-data:
+  main-data:
+  battle-data:

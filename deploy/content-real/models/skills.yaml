@@ -1,0 +1,566 @@
+# DEFAULT CHARACTER
+- name: default_character_weapon
+  behaviour:
+    type: attack
+    attack:
+      type: projectile
+      projectile_name: default_character_projectile
+      damage: 300
+      ms_between_attacks: 100
+      spread: 60
+      num_bullets_in_one_attack: 5
+  recharge_time: 1500
+  max_charge: 3
+  cool_down: 250
+  active_time: 150
+  casting_range: 23
+  can_move_at_same_time: true
+  execute_first_attack_immediately: true
+  is_targeted: true
+
+- name: default_character_ultimate
+  behaviour:
+    type: attack
+    attack:
+      type: projectile
+      projectile_name: default_character_ultimate_projectile
+      damage: 320
+      ms_between_attacks: 100
+      spread: 100
+      num_bullets_in_one_attack: 9
+  recharge_time: 0
+  max_charge: 0
+  cool_down: 150
+  active_time: 150
+  casting_range: 23
+  can_move_at_same_time: true
+  execute_first_attack_immediately: true
+  is_targeted: true
+
+# WOLF
+- name: wolf_weapon
+  behaviour:
+    type: attack
+    attack:
+      type: projectile
+      projectile_name: wolf_weapon_projectile
+      damage: 950
+      ms_between_attacks: 200
+      spread: 0
+      num_bullets_in_one_attack: 1
+  recharge_time: 1000
+  max_charge: 3
+  cool_down: 50
+  active_time: 250
+  casting_range: 18
+  can_move_at_same_time: true
+  is_targeted: true
+  execute_first_attack_immediately: true
+
+- name: wolf_ultimate
+  behaviour:
+    type: charge
+    charge:
+      type: fast_movement
+      charge_speed: 2500
+      charge_pushback: 0
+      unique_property:
+        name: consecutive_usage
+        max_consecutive_usages: 2
+  cool_down: 500
+  casting_range: 12
+  execute_first_attack_immediately: false
+  is_targeted: true
+
+# SINGER
+- name: singer_weapon
+  behaviour:
+    type: attack
+    attack:
+      type: projectile
+      projectile_name: singer_weapon_projectile
+      damage: 305
+      ms_between_attacks: 200
+      spread: 80
+      num_bullets_in_one_attack: 6
+  recharge_time: 1000
+  max_charge: 3
+  cool_down: 250
+  active_time: 250
+  casting_range: 16
+  can_move_at_same_time: true
+  execute_first_attack_immediately: true
+  is_targeted: true
+
+- name: singer_ultimate
+  behaviour:
+    type: area_buff_teammates
+    area_effect_name: singer_ultimate_area_effect
+    damage: 100
+    rage_value: 30
+    consumable_shield: 450
+    consumable_shield_ticks: 120
+  recharge_time: 1200
+  cool_down: 50
+  casting_time: 200
+  active_time: 150
+  can_move_at_same_time: true
+  execute_first_attack_immediately: false
+  is_targeted: false
+
+- name: singer_dash
+  behaviour:
+    type: portal
+    spawned_item_name: portal
+  casting_time: 1000
+  cool_down: 50
+  active_time: 250
+  casting_range: 25
+  can_move_at_same_time: false
+  execute_first_attack_immediately: true
+  is_targeted: true
+
+# JELLYFISH
+- name: jellyfish_weapon
+  behaviour:
+    type: attack
+    attack:
+      type: projectile
+      projectile_name: jellyfish_weapon_projectile
+      damage: 500
+      ms_between_attacks: 200
+      spread: 0
+      num_bullets_in_one_attack: 1
+  recharge_time: 1100
+  max_charge: 1
+  cool_down: 500
+  active_time: 250
+  casting_range: 15
+  can_move_at_same_time: true
+  execute_first_attack_immediately: true
+  is_targeted: true
+
+- name: jellyfish_ultimate
+  behaviour:
+    type: attack
+    attack:
+      type: projectile
+      projectile_name: jellyfish_ultimate_projectile
+      damage: 800
+      ms_between_attacks: 50
+      spread: 0
+      num_bullets_in_one_attack: 1
+      summon:
+        summoned_character_name: jellyfish_pet_ultimate_character
+        spawn_behavior: for_teammates
+  recharge_time: 2000
+  max_charge: 1
+  cool_down: 500
+  active_time: 50
+  casting_range: 15
+  casting_time: 650
+  can_move_at_same_time: true
+  execute_first_attack_immediately: true
+  is_targeted: true
+
+- name: jellyfish_dash
+  behaviour:
+    type: teleport
+    start_area_effect_name: jellyfish_dash_start_area_effect
+    end_area_effect_name: jellyfish_dash_end_area_effect
+  cool_down: 250
+  casting_time: 1000
+  active_time: 1000
+  casting_range: 25
+  execute_first_attack_immediately: true
+  can_move_at_same_time: false
+  is_targeted: true
+
+- name: jellyfish_pet_weapon
+  behaviour:
+    type: charge
+    charge:
+      type: attach
+      charge_speed: 2700
+      damage: 300
+      segment_shield:
+        percent: 70
+        ticks: 120
+  recharge_time: 100
+  max_charge: 3
+  cool_down: 500
+  active_time: 500
+  casting_range: 3
+  always_cast_at_max_range: true
+  execute_first_attack_immediately: false
+  is_targeted: true
+
+- name: jellyfish_pet_ultimate_dummy
+  behaviour:
+    type: attack
+    attack:
+      type: dummy
+  is_targeted: true
+
+# ANGEL WIND
+- name: angel_wind_weapon
+  behaviour:
+    type: attack
+    attack:
+      type: projectile
+      projectile_name: angel_wind_projectile
+      damage: 200
+      ms_between_attacks: 100
+      spread: 50
+      num_bullets_in_one_attack: 3
+  max_charge: 3
+  recharge_time: 1200
+  cool_down: 250
+  active_time: 150
+  casting_range: 15
+  can_move_at_same_time: true
+  execute_first_attack_immediately: true
+  is_targeted: true
+
+- name: angel_wind_ultimate
+  behaviour:
+    type: charge
+    charge:
+      type: jump
+      charge_speed: 3000
+      charge_pushback: 0
+      landing_area_effect_name: angel_wind_ultimate_area_effect
+      after_charge_skill_name: angel_wind_shield_ultimate
+  cool_down: 1000
+  casting_range: 20
+  is_targeted: true
+  execute_first_attack_immediately: false
+
+- name: angel_wind_dash
+  behaviour:
+    type: charge
+    charge:
+      type: fly
+      charge_speed: 2500
+      healing_per_second: 0
+  cool_down: 250
+  active_time: 2000
+  casting_range: 9
+  execute_first_attack_immediately: true
+  is_targeted: true
+
+- name: angel_wind_shield_ultimate
+  behaviour:
+    type: shield
+    projectile_name: angel_wind_ultimate_projectile
+    damage: 250
+    ms_between_attacks: 500
+    spread: 600
+  cool_down: 250
+  active_time: 5000
+  casting_range: 12
+  can_move_at_same_time: true
+  execute_first_attack_immediately: false
+  is_targeted: true
+
+# CLOWN VI
+- name: clown_weapon
+  behaviour:
+    type: attack
+    attack:
+      type: projectile
+      projectile_name: clown_weapon_projectile
+      damage: 450
+      ms_between_attacks: 100
+      spread: 0
+      num_bullets_in_one_attack: 1
+  recharge_time: 1000
+  max_charge: 1
+  cool_down: 500
+  active_time: 150
+  casting_range: 12
+  can_move_at_same_time: true
+  execute_first_attack_immediately: true
+  is_targeted: true
+
+- name: clown_ultimate
+  behaviour:
+    type: attack
+    attack:
+      type: projectile
+      projectile_name: clown_ultimate_projectile
+      damage: 700
+      ms_between_attacks: 100
+      spread: 0
+      num_bullets_in_one_attack: 1
+  recharge_time: 0
+  max_charge: 0
+  cool_down: 250
+  active_time: 150
+  casting_range: 23
+  can_move_at_same_time: true
+  execute_first_attack_immediately: true
+  is_targeted: true
+
+- name: clown_dash
+  behaviour:
+    type: charge
+    charge:
+      type: jump
+      charge_speed: 2000
+      charge_pushback: 0
+      landing_area_effect_name: clown_dash_area_effect
+  cool_down: 250
+  casting_range: 12
+  execute_first_attack_immediately: true
+  is_targeted: true
+
+# BOTANIST
+- name: botanist_weapon
+  behaviour:
+    type: attack
+    attack:
+      type: projectile
+      projectile_name: botanist_weapon_projectile
+      damage: 360
+      ms_between_attacks: 100
+      spread: 0
+      num_bullets_in_one_attack: 1
+  max_charge: 2
+  recharge_time: 1200
+  cool_down: 500
+  active_time: 150
+  casting_range: 18
+  can_move_at_same_time: true
+  execute_first_attack_immediately: true
+  is_targeted: true
+
+- name: botanist_ultimate
+  behaviour:
+    type: trail
+    area_effect_name: botanist_ultimate_area_effect
+    ms_between_attacks: 1000
+    damage: 0
+  cool_down: 250
+  active_time: 12000
+  casting_time: 1000
+  can_move_at_same_time: false
+  execute_first_attack_immediately: true
+  is_targeted: false
+
+- name: botanist_dash
+  behaviour:
+    type: charge
+    charge:
+      type: fly
+      charge_speed: 2100
+      healing_per_second: 300
+  cool_down: 250
+  active_time: 5000
+  casting_time: 1000
+  casting_range: 15
+  execute_first_attack_immediately: true
+  is_targeted: true
+
+# BOTANIST PET
+- name: botanist_pet_weapon
+  behaviour:
+    type: attack
+    attack:
+      type: projectile
+      projectile_name: botanist_pet_weapon_projectile
+      damage: 350
+      ms_between_attacks: 100
+      spread: 0
+      num_bullets_in_one_attack: 1
+  recharge_time: 2000
+  max_charge: 1
+  cool_down: 500
+  active_time: 150
+  casting_range: 21
+  can_move_at_same_time: false
+  execute_first_attack_immediately: true
+  is_targeted: true
+
+- name: botanist_pet_ultimate_dummy
+  behaviour:
+    type: attack
+    attack:
+      type: dummy
+  is_targeted: true
+
+# HORNED GIRL
+- name: horned_girl_weapon
+  behaviour:
+    type: attack
+    attack:
+      type: direct
+      damage: 1200
+      ms_between_attacks: 200
+      spread: 200
+      num_bullets_in_one_attack: 1
+  recharge_time: 800
+  max_charge: 1
+  cool_down: 50
+  active_time: 400
+  casting_time: 1000
+  casting_range: 9
+  can_move_at_same_time: true
+  execute_first_attack_immediately: false
+  is_targeted: true
+
+- name: horned_girl_ultimate
+  behaviour:
+    type: whirlwind
+    area_effect_name: horned_girl_ultimate_area_effect
+    damage: 600
+    ms_between_attacks: 600
+  cool_down: 50
+  active_time: 4000
+  casting_range: 9
+  can_move_at_same_time: false
+  always_cast_at_max_range: true
+  execute_first_attack_immediately: false
+  is_targeted: false
+
+- name: horned_girl_dash
+  behaviour:
+    type: charge
+    charge:
+      type: fast_movement
+      charge_speed: 2000
+      charge_pushback: 100
+      unique_property:
+        name: none
+  cool_down: 1000
+  casting_range: 12
+  is_targeted: true
+  execute_first_attack_immediately: false
+  can_move_at_same_time: false
+
+- name: horned_girl_ultimate_upgrade_skill
+  behaviour:
+    type: attack
+    attack:
+      type: area_effect
+      area_effect_name: horned_girl_upgraded_ultimate_area_effect
+      damage: 1800
+      ms_between_attacks: 100
+  cool_down: 250
+  active_time: 150
+  casting_time: 600
+  can_move_at_same_time: false
+  execute_first_attack_immediately: false
+  is_targeted: true
+
+# MECHANIC TURRET
+- name: mechanic_turret_weapon
+  behaviour:
+    type: attack
+    attack:
+      type: projectile
+      projectile_name: default_character_projectile
+      damage: 100
+      ms_between_attacks: 300
+      spread: 30
+      num_bullets_in_one_attack: 1
+  recharge_time: 100
+  max_charge: 1
+  cool_down: 0
+  active_time: 1800
+  casting_range: 30
+  can_move_at_same_time: true
+  execute_first_attack_immediately: false
+  is_targeted: true
+
+- name: dummy_shooting_weapon
+  behaviour:
+    type: attack
+    attack:
+      type: projectile
+      projectile_name: default_character_projectile
+      damage: 100
+      ms_between_attacks: 200
+      spread: 30
+      num_bullets_in_one_attack: 1
+  recharge_time: 500
+  max_charge: 1
+  cool_down: 0
+  active_time: 250
+  casting_range: 15
+  can_move_at_same_time: true
+  execute_first_attack_immediately: false
+  is_targeted: true
+
+# КАРИТИ
+- name: karity_spit
+  behaviour:
+    type: attack
+    attack:
+      type: projectile
+      projectile_name: karity_spit_projectile
+      damage: 260
+      ms_between_attacks: 100
+      spread: 0
+      num_bullets_in_one_attack: 1
+      summon:
+        summoned_character_name: karity_minion_character
+  max_charge: 1
+  recharge_time: 5200
+  cool_down: 900
+  active_time: 800
+  casting_range: 26
+  can_move_at_same_time: false
+  execute_first_attack_immediately: true
+  is_targeted: true
+
+- name: karity_jump
+  behaviour:
+    type: charge
+    charge:
+      type: jump
+      charge_speed: 2600
+      landing_area_effect_name: karity_slam_area
+      after_charge_skill_name: karity_silence
+  cool_down: 1200
+  casting_range: 30
+  is_targeted: true
+  execute_first_attack_immediately: false
+
+- name: karity_silence
+  behaviour:
+    type: attack
+    attack:
+      type: area_effect
+      area_effect_name: karity_silence_area
+      damage: 140
+      ms_between_attacks: 400
+  cool_down: 600
+  active_time: 900
+  casting_range: 8
+  can_move_at_same_time: false
+  execute_first_attack_immediately: true
+
+- name: karity_minion_bite
+  behaviour:
+    type: attack
+    attack:
+      type: direct
+      damage: 320
+      ms_between_attacks: 600
+      spread: 140
+  cool_down: 700
+  active_time: 500
+  casting_range: 4
+  can_move_at_same_time: false
+  execute_first_attack_immediately: true
+
+- name: karity_minion_dummy
+  behaviour:
+    type: attack
+    attack:
+      type: dummy
+      damage: 0
+  cool_down: 100000
+  active_time: 50
+  casting_range: 1

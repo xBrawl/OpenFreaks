@@ -1,0 +1,139 @@
+- name: showdown
+  team_count: 10
+  team_player_count: 1
+  duration_ticks: 16000
+  respawn_ticks: -1
+  is_showdown: true
+
+- name: duo_showdown
+  team_count: 5
+  team_player_count: 2
+  duration_ticks: 16000
+  underworld_ticks: 0
+  respawn_ticks: 160
+  is_showdown: true
+
+- name: trio_showdown
+  team_count: 4
+  team_player_count: 3
+  duration_ticks: 16000
+  respawn_ticks: 160
+  is_showdown: true
+
+- name: duel_duo_showdown_lobby
+  team_count: 6
+  team_player_count: 2
+  duration_ticks: 400
+  respawn_ticks: 20
+  is_arena: true
+  is_showdown: true
+  is_dps_calculation_enabled: true
+
+- name: duel_duo_showdown
+  team_count: 2
+  team_player_count: 2
+  duration_ticks: 6500
+  respawn_ticks: -1
+  is_showdown: true
+
+- name: duel_trio_showdown_lobby
+  team_count: 4
+  team_player_count: 3
+  duration_ticks: 400
+  respawn_ticks: 20
+  is_arena: true
+  is_showdown: true
+  is_dps_calculation_enabled: true
+
+- name: duel_trio_showdown
+  team_count: 2
+  team_player_count: 3
+  duration_ticks: 6500
+  respawn_ticks: -1
+  is_showdown: true
+
+- name: ascent
+  team_count: 10
+  team_player_count: 1
+  duration_ticks: 2400
+  respawn_ticks: 200
+  is_ascent: true
+
+- name: ball
+  team_count: 2
+  # 2v2: на троих поле слишком тесное, мяч подбирали раньше, чем кто-то успевал
+  # занять позицию, и матч превращался в свалку в центре.
+  team_player_count: 2
+  # Пять голов вместо трёх: три матч заканчивал за считанные секунды.
+  goals_to_win: 5
+  # Пять минут — запас, чтобы счёт успевал дорасти до победного.
+  duration_ticks: 6000
+  respawn_ticks: 140
+
+- name: bounty
+  team_count: 2
+  team_player_count: 3
+  duration_ticks: 3720
+  respawn_ticks: 160
+  is_bounty: true
+
+- name: bounty_5
+  team_count: 2
+  team_player_count: 5
+  duration_ticks: 3720
+  respawn_ticks: 160
+  is_bounty: true
+
+- name: king_of_the_hill_2_3
+  team_count: 2
+  team_player_count: 3
+  duration_ticks: 2400
+  respawn_ticks: 200
+  is_king_of_hill: true
+
+- name: king_of_the_hill_2_5
+  team_count: 2
+  team_player_count: 5
+  duration_ticks: 2400
+  respawn_ticks: 200
+  is_king_of_hill: true
+
+- name: king_of_the_hill_4_2
+  team_count: 4
+  team_player_count: 2
+  duration_ticks: 2400
+  respawn_ticks: 200
+  is_king_of_hill: true
+
+- name: king_of_the_hill_4_3
+  team_count: 4
+  team_player_count: 3
+  duration_ticks: 2400
+  respawn_ticks: 200
+  is_king_of_hill: true
+
+- name: tutorial
+  team_count: 1
+  team_player_count: 1
+  duration_ticks: 16000
+  respawn_ticks: 200
+
+- name: training
+  team_count: 1
+  team_player_count: 1
+  duration_ticks: 16000
+  respawn_ticks: 200
+  is_dps_calculation_enabled: true
+- name: test_arena
+  # Одиннадцатая команда — босс Karity: десять мест игроков остаются целыми.
+  team_count: 11
+  team_player_count: 1
+  duration_ticks: 2000000000
+  respawn_ticks: 100
+
+- name: mega_boss
+  team_count: 2
+  team_player_count: 6
+  max_players: 7 # 3–6 players and one server-controlled boss
+  duration_ticks: 3600 # three minutes at 20 ticks per second
+  respawn_ticks: 100

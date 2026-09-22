@@ -1,0 +1,11 @@
+.git
+.env
+.env.*
+*.exe
+*.zip
+*.rar
+data
+artifacts
+docs
+**/*.replay.gz
+**/*.local

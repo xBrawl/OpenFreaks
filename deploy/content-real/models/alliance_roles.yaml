@@ -1,0 +1,20 @@
+- id: 1
+  name: rookie
+  is_edit_permitted: false
+  is_approve_or_kick_permitted: true
+  is_role_change_permitted: false
+  is_label_background_enabled: false
+
+- id: 2
+  name: enforcer
+  is_edit_permitted: false
+  is_approve_or_kick_permitted: true
+  is_role_change_permitted: false
+  is_label_background_enabled: true
+
+- id: 3
+  name: leader
+  is_edit_permitted: true
+  is_approve_or_kick_permitted: true
+  is_role_change_permitted: true
+  is_label_background_enabled: true
