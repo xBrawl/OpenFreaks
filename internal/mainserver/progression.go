@@ -7,7 +7,13 @@ import (
 
 // Called once, in the same transaction as the immutable result receipt.
 func (s *Server) recordBattleProgress(r *battleserver.Result, record store.BattleRecord) {
-	for _, p := range r.Players {
+	for _, combatPlayer := range r.Players {
+		// Заражение/Кошмар меняют модель и сторону в симуляции. Мастерство,
+		// задания и награды относятся к герою из исходного состава матча.
+		player := *combatPlayer
+		player.ModelID = combatPlayer.ResultModel()
+		player.Team = combatPlayer.ResultTeam()
+		p := &player
 		if p.IsBot || p.PlayerID <= 0 || p.Abandoned {
 			continue
 		}
@@ -21,6 +27,10 @@ func (s *Server) recordBattleProgress(r *battleserver.Result, record store.Battl
 			meta.ResultRanks[int(record.ModeID)] = map[int]int{}
 		}
 		meta.ResultRanks[int(record.ModeID)][int(rank)]++
+		meta.Career.Kills += p.Kills
+		meta.Career.Deaths += p.Deaths
+		meta.Career.Battles++
+		meta.Career.PlaySeconds += int64(max(0, r.FinalTick)) / 20
 		m := meta.Mastery[int(p.ModelID)]
 		if m == nil {
 			m = &store.Mastery{}
@@ -31,12 +41,15 @@ func (s *Server) recordBattleProgress(r *battleserver.Result, record store.Battl
 			role = ch.Role
 		}
 		roleScore := 0
+		// Классы бойцов (role_name): урон — убийцы, стрелки, воины, артиллерия;
+		// живучесть — танки; помощь — поддержка и контроль. attack/defense —
+		// прежние имена ролей, на случай старого контента.
 		switch role {
-		case "attack":
+		case "assassin", "marksman", "fighter", "artillery", "attack":
 			roleScore = p.Kills*10 + min(20, p.DamageDealt/500)
-		case "defense":
+		case "tank", "defense":
 			roleScore = max(0, 3-p.Deaths)*8 + min(15, p.DamageDealt/1000)
-		case "support":
+		case "support", "control":
 			roleScore = max(0, 3-p.Deaths)*8 + p.Kills*5
 		}
 		style := 0
@@ -63,7 +76,7 @@ func (s *Server) recordBattleProgress(r *battleserver.Result, record store.Battl
 			mates := 0
 			roles := map[string]bool{}
 			for _, other := range r.Players {
-				if other.IsBot || other.PlayerID <= 0 || other.Team != p.Team {
+				if other.IsBot || other.PlayerID <= 0 || other.ResultTeam() != p.Team {
 					continue
 				}
 				a, ok := s.playerAlliance(other.PlayerID)
@@ -71,7 +84,7 @@ func (s *Server) recordBattleProgress(r *battleserver.Result, record store.Battl
 					continue
 				}
 				mates++
-				if c := s.catData.CharByID[int(other.ModelID)]; c != nil {
+				if c := s.catData.CharByID[int(other.ResultModel())]; c != nil {
 					roles[c.Role] = true
 				}
 			}

@@ -2,7 +2,9 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
+	"strings"
 )
 
 type Compatibility struct {
@@ -12,6 +14,7 @@ type Compatibility struct {
 }
 
 type Network struct {
+	TrustedProxyCIDRs      []string `json:"trustedProxyCidrs,omitempty"`
 	WebSocketBind          string   `json:"webSocketBind"`
 	WebSocketOrigins       []string `json:"webSocketOrigins"`
 	TCPBind                string   `json:"tcpBind"`
@@ -59,14 +62,16 @@ type Persistence struct {
 }
 
 type Authentication struct {
-	CredentialNamespace      string `json:"credentialNamespace"`
-	SessionPolicy            string `json:"sessionPolicy"`
-	GrantTTLSeconds          int    `json:"grantTtlSeconds"`
-	TokenSecret              string `json:"tokenSecret"`
-	TokenSecretEnv           string `json:"tokenSecretEnvironment"`
-	InternalServiceSecret    string `json:"internalServiceSecret"`
-	InternalServiceSecretEnv string `json:"internalServiceSecretEnvironment"`
-	EnableTestRegistration   bool   `json:"enableTestRegistration"`
+	// Bootstrap roles are keyed by immutable player IDs, never display names.
+	BootstrapStaffRoles      map[int64]int32 `json:"bootstrapStaffRoles,omitempty"`
+	CredentialNamespace      string          `json:"credentialNamespace"`
+	SessionPolicy            string          `json:"sessionPolicy"`
+	GrantTTLSeconds          int             `json:"grantTtlSeconds"`
+	TokenSecret              string          `json:"tokenSecret"`
+	TokenSecretEnv           string          `json:"tokenSecretEnvironment"`
+	InternalServiceSecret    string          `json:"internalServiceSecret"`
+	InternalServiceSecretEnv string          `json:"internalServiceSecretEnvironment"`
+	EnableTestRegistration   bool            `json:"enableTestRegistration"`
 }
 
 type Testing struct {
@@ -184,7 +189,7 @@ func Load(path string) (Root, error) {
 	cfg := Default()
 	if path == "" {
 		ApplyEnv(&cfg)
-		return cfg, nil
+		return cfg, validateSecretEnvironment(cfg)
 	}
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -194,7 +199,29 @@ func Load(path string) (Root, error) {
 		return cfg, err
 	}
 	ApplyEnv(&cfg)
-	return cfg, nil
+	return cfg, validateSecretEnvironment(cfg)
+}
+
+func validateSecretEnvironment(cfg Root) error {
+	for _, node := range []Node{cfg.Main, cfg.Battle} {
+		for _, name := range []string{node.Authentication.TokenSecretEnv, node.Authentication.InternalServiceSecretEnv,
+			node.BattleServer.SharedSecretEnv, node.MainServer.SharedSecretEnv} {
+			if name != "" && len(strings.TrimSpace(os.Getenv(name))) < 16 {
+				return fmt.Errorf("required secret environment variable %s is missing or too short", name)
+			}
+		}
+	}
+	return nil
+}
+
+func (p PeerRef) Secret(fallback string) string {
+	if p.SharedSecretEnv != "" {
+		return os.Getenv(p.SharedSecretEnv)
+	}
+	if p.SharedSecret != "" {
+		return p.SharedSecret
+	}
+	return fallback
 }
 
 func ApplyEnv(cfg *Root) {
@@ -252,34 +279,26 @@ func ApplyEnv(cfg *Root) {
 
 func (n *Node) TokenSecret() string {
 	if n.Authentication.TokenSecretEnv != "" {
-		if v := os.Getenv(n.Authentication.TokenSecretEnv); v != "" {
-			return v
-		}
+		return os.Getenv(n.Authentication.TokenSecretEnv)
 	}
 	return n.Authentication.TokenSecret
 }
 
 func (n *Node) InternalSecret() string {
 	if n.Authentication.InternalServiceSecretEnv != "" {
-		if v := os.Getenv(n.Authentication.InternalServiceSecretEnv); v != "" {
-			return v
-		}
+		return os.Getenv(n.Authentication.InternalServiceSecretEnv)
 	}
 	if n.Authentication.InternalServiceSecret != "" {
 		return n.Authentication.InternalServiceSecret
 	}
 	if n.BattleServer.SharedSecretEnv != "" {
-		if v := os.Getenv(n.BattleServer.SharedSecretEnv); v != "" {
-			return v
-		}
+		return os.Getenv(n.BattleServer.SharedSecretEnv)
 	}
 	if n.BattleServer.SharedSecret != "" {
 		return n.BattleServer.SharedSecret
 	}
 	if n.MainServer.SharedSecretEnv != "" {
-		if v := os.Getenv(n.MainServer.SharedSecretEnv); v != "" {
-			return v
-		}
+		return os.Getenv(n.MainServer.SharedSecretEnv)
 	}
 	return n.MainServer.SharedSecret
 }

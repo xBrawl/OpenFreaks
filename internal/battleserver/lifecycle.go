@@ -51,6 +51,31 @@ func (s *Server) Resume(battleID string, playerID int64) (*BattleGrant, error) {
 	}
 	return grant, nil
 }
+// Emote — игрок кинул эмоут в бою (эмоуты идут через главный сервер). Бою он
+// нужен для щита эмодзи титана Карити (sim.KarityEmote).
+func (s *Server) Emote(battleID string, playerID int64) bool {
+	s.mu.Lock()
+	m := s.matches[battleID]
+	s.mu.Unlock()
+	if m == nil {
+		return false
+	}
+	index := -1
+	for _, p := range m.parts {
+		if p.PlayerID == playerID && !p.IsBot {
+			index = p.Index
+			break
+		}
+	}
+	if index < 0 {
+		return false
+	}
+	m.worldMu.Lock()
+	defer m.worldMu.Unlock()
+	m.World.KarityEmote(index)
+	return true
+}
+
 func (s *Server) Leave(battleID string, playerID int64) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()

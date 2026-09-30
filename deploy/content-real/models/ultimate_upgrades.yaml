@@ -49,3 +49,9 @@
     ticks_between_spawn: 200
     spawn_count: 1
     max_spawn_count: 3
+
+- name: rabbit_ultimate_upgrade_1
+  target_character_name: default_character
+  type:
+    name: override_minion_death_area_effect
+    area_effect_name: rabbit_tv_explosion

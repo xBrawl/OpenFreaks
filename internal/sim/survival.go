@@ -5,6 +5,9 @@ import "math"
 // Must match PoisonContainer.IsPositionPoisoned in the Unity client: a rounded
 // square, not a circle. The same tick origin and radius also drive the VFX.
 func (w *World) PoisonedAt(x, y float64, tick int32) bool {
+	if w.modes.knockout != nil {
+		return knockoutPoisoned(w, x, y, tick)
+	}
 	if !(w.IsShowdown || w.IsAscent) || w.IsArenaLobby || tick <= 430 {
 		return false
 	}
@@ -45,6 +48,8 @@ func pickUpItem(w *World, p *Player, item *Item) {
 	case "game_point":
 		p.GamePoints = min(255, p.GamePoints+value)
 		w.AddPoint(p.Team, value)
+	case kgItem:
+		kgPickUp(w, p)
 	case "angel_wind_feather":
 		GiveShield(p, p.MaxHP*value/100, item.Definition.Int("value2", 100))
 	}

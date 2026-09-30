@@ -76,7 +76,7 @@
   type:
     name: shield_after_caused_damage
     shield_percent: 10
-    shield_ticks: 20
+    shield_ticks: 50
 
 - name: clown_star_power_1
   rarity_name: common
@@ -102,7 +102,7 @@
     name: attack_heal
     heal_value: 0
     consumable_shield_value: 300
-    consumable_shield_ticks: 10
+    consumable_shield_ticks: 60
 
 - name: horned_girl_star_power_2
   rarity_name: common
@@ -128,3 +128,34 @@
     name: following_minion_spawn
     minion_character_name: botanist_pet_character
     auto_spawn_delay_ticks: 200
+
+# КРОЛИК. Тип attack_heal с нулями — ради старых APK, которые знают только
+# прежние типы; настоящее действие — rabbit_perk, его читает сервер.
+- name: rabbit_star_power_1
+  rarity_name: common
+  target_character_name: default_character
+  unlock_upgrade_tokens_spent: 4
+  type:
+    name: attack_heal
+    heal_value: 0
+    consumable_shield_value: 0
+    consumable_shield_ticks: 0
+    rabbit_perk: tv_overclock
+    reload_percent_per_hit: 25
+    max_reload_percent: 75
+    ticks: 60
+
+- name: rabbit_star_power_2
+  rarity_name: common
+  target_character_name: default_character
+  unlock_upgrade_tokens_spent: 12
+  type:
+    name: attack_heal
+    heal_value: 0
+    consumable_shield_value: 0
+    consumable_shield_ticks: 0
+    rabbit_perk: tv_pull
+    area_effect_name: rabbit_tv_pull_field
+    radius: 1100
+    strength: 7
+    dead_zone: 220

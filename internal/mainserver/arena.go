@@ -325,7 +325,7 @@ func (s *Server) allocateArenaPending(t *store.ArenaTournament) {
 			v := p.Slot
 			team := teamMap[v.Team]
 			parts = append(parts, &battleserver.Participant{TestBalance: v.TestBalance, PlayerID: v.PlayerID, IsBot: v.IsBot, Index: index, Team: team, Name: v.Name, ModelID: v.CharacterModelID, HPLevel: v.HPLevel, DamageLevel: v.DamageLevel, SpeedLevel: v.SpeedLevel, UltID: v.UltID, DashID: v.DashID, StarPowerID: v.StarPowerID, AugmentIDs: append([]int32(nil), p.Augments...)})
-			protos = append(protos, protocol.BattleStartedPlayer{Name: v.Name, ModelID: v.CharacterModelID, Index: int32(index), Team: int32(team), HPLevel: v.HPLevel, DamageLevel: v.DamageLevel, SpeedLevel: v.SpeedLevel, UltimateUpgradeID: v.UltID, DashID: v.DashID, AugmentIDs: append([]int32(nil), p.Augments...)})
+			protos = append(protos, protocol.BattleStartedPlayer{PlayerID: v.PlayerID, Name: v.Name, ModelID: v.CharacterModelID, Index: int32(index), Team: int32(team), HPLevel: v.HPLevel, DamageLevel: v.DamageLevel, SpeedLevel: v.SpeedLevel, UltimateUpgradeID: v.UltID, DashID: v.DashID, AugmentIDs: append([]int32(nil), p.Augments...)})
 		}
 		id := newBattleID()
 		sessions, host, port, err := s.battle.Allocate(&battleserver.AllocateRequest{ArenaRound: !lobby, BattleID: id, LocationID: loc.Id, ModeID: int32(mode.Id), Participants: parts})
@@ -352,7 +352,7 @@ func (s *Server) allocateArenaPending(t *store.ArenaTournament) {
 			if c, ok := s.ConnByPlayer(p.PlayerID); ok {
 				c.BattleID = id
 				c.ArenaInfoBattle = ""
-				c.Send(protocol.SBattleStarted, (&protocol.BattleStartedMsg{ParticipantType: protocol.ParticipantPlayer, LocationName: loc.Name, OwnIndex: int32(p.Index), OwnTeam: int32(p.Team), Players: protos, Host: host, Port: int32(port), SessionID: sessions[p.Index]}).Encode())
+				s.sendBattleStarted(c, &protocol.BattleStartedMsg{ParticipantType: protocol.ParticipantPlayer, LocationName: loc.Name, OwnIndex: int32(p.Index), OwnTeam: int32(p.Team), Players: protos, Host: host, Port: int32(port), SessionID: sessions[p.Index]})
 			}
 		}
 	}

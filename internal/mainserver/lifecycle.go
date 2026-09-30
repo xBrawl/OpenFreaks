@@ -21,16 +21,23 @@ func (s *Server) resumeBattle(c *Conn) bool {
 			if p.PlayerID != c.PlayerID || p.Abandoned || p.IsBot {
 				continue
 			}
+			// Тестовая арена не кончается: если клиент из неё вылетел, при входе
+			// его не затягиваем обратно (иначе вылет повторяется на каждом входе),
+			// а освобождаем слот.
+			if practiceBattle(id) {
+				backend.Leave(id, c.PlayerID)
+				continue
+			}
 			grant, err := backend.Resume(id, c.PlayerID)
 			if err != nil {
 				continue
 			}
 			message := &protocol.BattleStartedMsg{ParticipantType: protocol.ParticipantPlayer, LocationName: grant.LocationName, OwnIndex: int32(grant.OwnIndex), OwnTeam: int32(grant.OwnTeam), Host: grant.Host, Port: int32(grant.Port), SessionID: grant.SessionID}
 			for _, player := range grant.Players {
-				message.Players = append(message.Players, protocol.BattleStartedPlayer{Name: player.Name, ModelID: player.ModelID, Index: int32(player.Index), Team: int32(player.Team), HPLevel: player.HPLevel, DamageLevel: player.DamageLevel, SpeedLevel: player.SpeedLevel, UltimateUpgradeID: player.UltID, DashID: player.DashID, AugmentIDs: player.AugmentIDs})
+				message.Players = append(message.Players, protocol.BattleStartedPlayer{PlayerID: player.PlayerID, Name: player.Name, ModelID: player.ModelID, Index: int32(player.Index), Team: int32(player.Team), HPLevel: player.HPLevel, DamageLevel: player.DamageLevel, SpeedLevel: player.SpeedLevel, UltimateUpgradeID: player.UltID, DashID: player.DashID, AugmentIDs: player.AugmentIDs})
 			}
 			c.BattleID = id
-			return c.Send(protocol.SBattleStarted, message.Encode())
+			return s.sendBattleStarted(c, message)
 		}
 	}
 	for _, t := range s.store.Meta.Arenas {
@@ -72,6 +79,7 @@ func (s *Server) leaveBattle(c *Conn) bool {
 		}
 	}
 	c.BattleID = ""
+	s.releaseTeamMember(c.PlayerID)
 	return true
 }
 

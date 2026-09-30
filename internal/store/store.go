@@ -48,6 +48,52 @@ type Account struct {
 	SelectedChar   int32
 	LastOnlineUnix int64
 	Online         bool
+	// AvatarID — модель героя на аватарке; 0 — аватарка следует за текущим героем.
+	AvatarID int32 `json:",omitempty"`
+	// Role — служебная роль (RoleStaff…RoleAdmin); 0 — обычный игрок.
+	Role int32 `json:",omitempty"`
+	// Ban — последняя блокировка (действует, пока не снята и не истекла),
+	// Bans — все прошлые, для модераторов и эскалации античита.
+	Ban  *Ban  `json:",omitempty"`
+	Bans []Ban `json:",omitempty"`
+}
+
+// Служебные роли по старшинству: банить может модератор и выше, и только
+// тех, кто ниже его самого.
+const (
+	RoleNone      int32 = 0
+	RoleStaff     int32 = 1 // «Сотрудник»: художники и прочие — только подпись
+	RoleModerator int32 = 2
+	RoleDeveloper int32 = 3
+	RoleAdmin     int32 = 4
+)
+
+// Причины блокировки.
+const (
+	BanCheats    int32 = 1 // применение читов (в том числе автоматически — античит)
+	BanAbuse     int32 = 2 // непристойное поведение и оскорбление участников сообщества
+	BanRules     int32 = 3 // нарушение правил сообщества (с конкретной причиной в Note)
+	BanReasonMax       = BanRules
+)
+
+type Ban struct {
+	Reason int32
+	Note   string `json:",omitempty"`
+	At     int64
+	// Until — конец блокировки (мс); 0 — навсегда.
+	Until    int64
+	ByID     int64
+	ByName   string
+	Auto     bool   `json:",omitempty"`
+	LiftedAt int64  `json:",omitempty"`
+	LiftedBy string `json:",omitempty"`
+	// Hours — срок при наложении (0 — навсегда); в Until его переводит сервер.
+	Hours int32 `json:"-"`
+}
+
+// Active — блокировка действует в момент now (мс).
+func (b *Ban) Active(now int64) bool {
+	return b != nil && b.LiftedAt == 0 && (b.Until == 0 || b.Until > now)
 }
 
 type Credential struct {
@@ -77,6 +123,11 @@ type AllianceMessage struct {
 	RoleModelID  int32
 	Message      string
 	CreationTime int64
+	// Системное сообщение (Type 1): что случилось и с кем. PlayerID — кто это сделал.
+	EventType       int32  `json:",omitempty"`
+	EventPlayerID   int64  `json:",omitempty"`
+	EventPlayerName string `json:",omitempty"`
+	EventPlayerRole int32  `json:",omitempty"`
 }
 
 type Team struct {
@@ -87,6 +138,15 @@ type Team struct {
 	Members    map[int64]*TeamMemberState
 	Pending    map[int64]int32
 	State      int32
+	// Чат отряда: последние сообщения, живут вместе с командой.
+	Messages []TeamMessage `json:",omitempty"`
+}
+
+type TeamMessage struct {
+	PlayerID int64
+	Name     string
+	Text     string
+	Time     int64
 }
 
 type TeamMemberState struct {
@@ -104,6 +164,16 @@ type BattleRecord struct {
 	Participants []int64
 	TrophyDeltas map[int64]int32
 	Ranks        map[int64]int32
+	// Highlights — лучшие моменты боя (кнопки перемотки реплея в логе).
+	Highlights []BattleHighlight `json:",omitempty"`
+}
+
+// BattleHighlight — момент боя: тик, вид (sim.Highlight*), индекс героя в
+// составе (-1 — без героя) и число (серия, раунд).
+type BattleHighlight struct {
+	Tick         int32
+	Kind, Player int32
+	Count        int32
 }
 
 type Store struct {
@@ -575,8 +645,32 @@ func (s *Store) AddBattle(rec BattleRecord) {
 	defer s.mu.Unlock()
 	s.noteBattles()
 	s.battles = append(s.battles, rec)
-	if len(s.battles) > 200 {
-		s.battles = s.battles[len(s.battles)-200:]
+	// История ограничивается на игрока, а не на весь сервер: чужие матчи
+	// раньше вытесняли даже последнюю запись неактивного игрока.
+	// Прореживание раз в 64 матча не добавляет полный проход на каждый бой.
+	if len(s.battles) > 256 && len(s.battles)%64 == 0 {
+		counts := make(map[int64]int)
+		kept := make([]BattleRecord, 0, len(s.battles))
+		for i := len(s.battles) - 1; i >= 0; i-- {
+			battle := s.battles[i]
+			keep := false
+			for _, pid := range battle.Participants {
+				if pid > 0 && counts[pid] < 20 {
+					keep = true
+				}
+			}
+			if !keep {
+				continue
+			}
+			kept = append(kept, battle)
+			for _, pid := range battle.Participants {
+				counts[pid]++
+			}
+		}
+		for i, j := 0, len(kept)-1; i < j; i, j = i+1, j-1 {
+			kept[i], kept[j] = kept[j], kept[i]
+		}
+		s.battles = kept
 	}
 }
 
@@ -642,6 +736,11 @@ func (s *Store) DumpState() *Dump {
 		for sk := range a.OwnedSkins {
 			cp.OwnedSkins[sk] = true
 		}
+		if a.Ban != nil {
+			ban := *a.Ban
+			cp.Ban = &ban
+		}
+		cp.Bans = append([]Ban(nil), a.Bans...)
 		th := make([]byte, len(a.TokenHash))
 		copy(th, a.TokenHash)
 		cp.TokenHash = th

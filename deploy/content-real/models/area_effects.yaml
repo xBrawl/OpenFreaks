@@ -84,15 +84,17 @@
   radius: 600
   time_ms: 2000
 
+# Приземление телепорта Медузы — шлепок: урон, замедление и короткое оглушение.
 - name: jellyfish_dash_end_area_effect
   type_name: damage
   radius: 600
   time_ms: 2000
+  damage: 600
 
   speed_change:
-    enemies: [ -20, 30 ]
+    enemies: [ -30, 30 ]
 
-  madness_ticks: 1
+  madness_ticks: 8
 
 - name: jellyfish_pet_ultimate_death_area_effect
   type_name: heal
@@ -231,3 +233,202 @@
   madness_ticks: 40
   same_area_effect_cannot_damage_ms: 2000
   area_effect_cannot_affect_owner: true
+
+# КРОЛИК. Все зоны, кроме взрыва, — только картинка (type effect): логику
+# передач и притяжения считает сервер, клиенту нужен лишь маркер.
+- name: rabbit_tv_deploy
+  type_name: effect
+  radius: 300
+  time_ms: 900
+
+# Какая передача сейчас на экране телевизора (зона следует за телевизором).
+- name: rabbit_tv_channel_1
+  type_name: effect
+  radius: 150
+  time_ms: 60000
+
+- name: rabbit_tv_channel_2
+  type_name: effect
+  radius: 150
+  time_ms: 60000
+
+- name: rabbit_tv_channel_switch
+  type_name: effect
+  radius: 300
+  time_ms: 700
+
+# Метка «автохил отключён» над врагом (передача 1).
+- name: rabbit_antiheal_mark
+  type_name: effect
+  radius: 150
+  time_ms: 6000
+
+# Телевизор разогнан «малой пассивкой».
+- name: rabbit_tv_acceleration
+  type_name: effect
+  radius: 200
+  time_ms: 3000
+
+# Поле притяжения («пассивка»).
+- name: rabbit_tv_pull_field
+  type_name: effect
+  radius: 1100
+  time_ms: 60000
+
+# «Передача»: телевизор взрывается.
+- name: rabbit_tv_explosion
+  type_name: damage
+  radius: 750
+  time_ms: 500
+  damage: 1600
+  same_area_effect_cannot_damage_ms: 1000
+
+# КАРИТИ, фаза 2 и перекат шара. Все предупреждения — только картинка (type
+# effect): урон считает sim/karity.go в момент удара, а по имени зоны клиент
+# понимает, какую атаку начинает босс.
+# Взмах рукой по полосе ближе к камере / дальше от камеры (зона — в центре полосы).
+- name: karity_titan_sweep_front
+  type_name: effect
+  radius: 1
+  time_ms: 1900
+- name: karity_titan_sweep_back
+  type_name: effect
+  radius: 1
+  time_ms: 1900
+# Хлопок ладонью в точку.
+- name: karity_titan_slam
+  type_name: effect
+  radius: 1
+  time_ms: 1300
+# Титан выпускает хватальщиков из ладоней.
+- name: karity_titan_summon
+  type_name: effect
+  radius: 1
+  time_ms: 1500
+# Перекат шара: зона — в конце полосы, полоса идёт от шара к ней.
+- name: karity_roll_lane
+  type_name: effect
+  radius: 1
+  time_ms: 2400
+
+# Липкая лужа от плевка: замедляет и понемногу жжёт.
+- name: karity_spit_puddle
+  type_name: damage
+  radius: 380
+  time_ms: 3500
+  damage: 50
+  same_area_effect_cannot_damage_ms: 1000
+  area_effect_cannot_affect_owner: true
+  speed_change:
+    enemies: [ -35, 20 ]
+
+# КАРИТИ: замах эмодзи-залпа (следует за шаром) и круг под падающим смайлом
+# эмодзи-дождя титана. Только картинка — урон считает sim/karity.go.
+- name: karity_emoji_burst
+  type_name: effect
+  radius: 1
+  time_ms: 1600
+- name: karity_emoji_meteor
+  type_name: effect
+  radius: 1
+  time_ms: 1600
+# КАРИТИ, фаза 2: титан валится телом на полосу вдоль себя (sim/karity.go).
+- name: karity_titan_crush
+  type_name: effect
+  radius: 1
+  time_ms: 1500
+
+# ── КОШМАР В КАТАКОМБАХ (sim/nightmare.go) ──────────────────────────────
+# Предметы карты: сервер держит их живыми сам, урона нет — только картинка.
+# Кадр с ними получает только тот, кто их сейчас видит.
+- name: nightmare_vent
+  type_name: effect
+  radius: 1
+  time_ms: 5000
+- name: nightmare_panel_light
+  type_name: effect
+  radius: 1
+  time_ms: 5000
+- name: nightmare_panel_gate
+  type_name: effect
+  radius: 1
+  time_ms: 5000
+- name: nightmare_fuse
+  type_name: effect
+  radius: 1
+  time_ms: 5000
+- name: nightmare_fuse_box
+  type_name: effect
+  radius: 1
+  time_ms: 5000
+- name: nightmare_revolver
+  type_name: effect
+  radius: 1
+  time_ms: 5000
+# Тело погибшего: лежит 20 секунд.
+- name: nightmare_body
+  type_name: effect
+  radius: 1
+  time_ms: 20000
+# Убийца достаёт нож (полсекунды замаха) и бьёт.
+- name: nightmare_knife_draw
+  type_name: effect
+  radius: 1
+  time_ms: 500
+- name: nightmare_knife_slash
+  type_name: effect
+  radius: 1
+  time_ms: 450
+# Дым из люка, когда убийца в него нырнул или вылез.
+- name: nightmare_vent_puff
+  type_name: effect
+  radius: 1
+  time_ms: 800
+# Искры на щитке после саботажа.
+- name: nightmare_sabotage_sparks
+  type_name: effect
+  radius: 1
+  time_ms: 1200
+
+# ── ЗАРАЖЕНИЕ (sim/infection.go) ─────────────────────────────────────────
+# Приземление прыжка: замедляет выживших вокруг на полторы секунды.
+- name: infection_pounce_landing
+  type_name: damage
+  radius: 520
+  time_ms: 400
+  damage: 0
+  same_area_effect_cannot_damage_ms: 1000
+  area_effect_cannot_affect_owner: true
+  speed_change:
+    enemies: [ -45, 30 ]
+- name: infection_alpha_landing
+  type_name: damage
+  radius: 640
+  time_ms: 400
+  damage: 0
+  same_area_effect_cannot_damage_ms: 1000
+  area_effect_cannot_affect_owner: true
+  speed_change:
+    enemies: [ -45, 30 ]
+# Ящик с припасами: падает каждые 30 секунд, открывает выживший.
+- name: infection_crate
+  type_name: effect
+  radius: 1
+  time_ms: 5000
+# Превращение в заражённого — вспышка на месте.
+- name: infection_mutation
+  type_name: effect
+  radius: 1
+  time_ms: 1200
+# Запах страха: выживший засиделся — фиолетовый след виден орде сквозь стены.
+- name: infection_fear
+  type_name: effect
+  radius: 1
+  time_ms: 5000
+
+# ── ЗАХВАТ КАРИТА (sim/karitgrab.go) ────────────────────────────────────
+# Шахта в центре карты: сервер держит её живой сам, урона нет.
+- name: karit_mine
+  type_name: effect
+  radius: 1
+  time_ms: 5000

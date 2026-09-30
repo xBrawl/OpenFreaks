@@ -505,6 +505,10 @@ func PersistOwned(ctx context.Context, pool *pgxpool.Pool, d *store.Dump, token 
 			batch.Queue(`INSERT INTO alliance_join_requests(alliance_id,player_id,created_at) VALUES($1,$2,$3)`, al.ID, pid, ts)
 		}
 		for _, msg := range al.Messages {
+			// Зеркальная таблица хранит только текст; системные сообщения живут в шарде шайки.
+			if msg.Type != 0 {
+				continue
+			}
 			batch.Queue(`INSERT INTO alliance_messages(alliance_id,player_id,message,created_at) VALUES($1,$2,$3,$4)`,
 				al.ID, msg.PlayerID, msg.Message, msg.CreationTime)
 		}
@@ -901,7 +905,14 @@ func Load(ctx context.Context, pool *pgxpool.Pool) (*store.Dump, error) {
 	if frows.Err() != nil {
 		return nil, frows.Err()
 	}
-	brows, err := pool.Query(ctx, `SELECT battle_id,location_model_id,game_mode_model_id,started_at,total_ticks,participant_ids,players_json FROM battle_history ORDER BY started_at DESC LIMIT 2000`)
+	brows, err := pool.Query(ctx, `SELECT battle_id,location_model_id,game_mode_model_id,started_at,total_ticks,participant_ids,players_json
+        FROM battle_history WHERE battle_id IN (
+            SELECT battle_id FROM (
+                SELECT battle_id, row_number() OVER (PARTITION BY player_id ORDER BY started_at DESC, battle_id DESC) AS position
+                FROM battle_results JOIN battle_history USING (battle_id)
+                WHERE player_id > 0
+            ) recent WHERE position <= 20
+        ) ORDER BY started_at DESC, battle_id DESC`)
 	if err != nil {
 		return nil, err
 	}

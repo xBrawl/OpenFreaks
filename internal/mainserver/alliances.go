@@ -22,10 +22,11 @@ func cleanSocialText(text string) string {
 		return r
 	}, strings.TrimSpace(text))
 }
-func (s *Server) allianceProto(al *store.Alliance, viewer int64) *protocol.Alliance {
+func (s *Server) allianceProto(al *store.Alliance, c *Conn) *protocol.Alliance {
+	viewer := c.PlayerID
 	result := &protocol.Alliance{AllianceID: al.ID, Name: al.Name, Description: al.Description, Type: al.Type, PlayerCount: int32(len(al.Members))}
 	row := func(pid int64, role int32) protocol.AlliancePlayer {
-		p := protocol.AlliancePlayer{PlayerID: pid, RoleModelID: role}
+		p := protocol.AlliancePlayer{PlayerID: pid, RoleModelID: role, Social: s.socialFor(c, pid)}
 		if a, ok := s.store.GetAccount(pid); ok {
 			p.PlayerName = a.Name
 			p.IsOnline = a.Online
@@ -59,7 +60,7 @@ func (s *Server) pushAlliance(al *store.Alliance) {
 	for pid := range al.Members {
 		if c, ok := s.ConnByPlayer(pid); ok {
 			w := protocol.NewWriter()
-			s.allianceProto(al, pid).Encode(w)
+			s.allianceProto(al, c).Encode(w)
 			c.Send(protocol.SAllianceDataResponse, w.Bytes())
 		}
 	}
@@ -92,7 +93,7 @@ func (s *Server) onAllianceSearch(c *Conn, payload []byte) bool {
 	w := protocol.NewWriter()
 	w.WriteInt(int32(len(list)))
 	for _, al := range list {
-		s.allianceProto(al, c.PlayerID).Encode(w)
+		s.allianceProto(al, c).Encode(w)
 	}
 	return c.Send(protocol.SAllianceSearchResponse, w.Bytes())
 }
@@ -120,6 +121,7 @@ func (s *Server) onAllianceCreate(c *Conn, payload []byte) bool {
 	}
 	al := s.store.CreateAlliance(name, description, kind, c.PlayerID)
 	s.clearAllianceRequests(c.PlayerID)
+	s.allianceEvent(al, allianceEventCreated, c.PlayerID, c.PlayerID)
 	c.Send(protocol.SAllianceCreateResponse, encodeAllianceCreate(0, true, al.ID))
 	return s.sendHome(c)
 }
@@ -156,7 +158,7 @@ func (s *Server) onAllianceData(c *Conn, payload []byte) bool {
 		al = &store.Alliance{ID: id}
 	}
 	w := protocol.NewWriter()
-	s.allianceProto(al, c.PlayerID).Encode(w)
+	s.allianceProto(al, c).Encode(w)
 	return c.Send(protocol.SAllianceDataResponse, w.Bytes())
 }
 func (s *Server) onAllianceJoin(c *Conn, payload []byte) bool {
@@ -184,6 +186,7 @@ func (s *Server) onAllianceJoin(c *Conn, payload []byte) bool {
 			a.AllianceID = id
 			al.Members[c.PlayerID] = 1
 			s.clearAllianceRequests(c.PlayerID)
+			s.allianceEvent(al, allianceEventJoin, c.PlayerID, c.PlayerID)
 			code = 0
 			success = true
 		}
@@ -217,6 +220,7 @@ func (s *Server) onAllianceJoinReply(c *Conn, payload []byte) bool {
 				al.Members[target] = 1
 				a.AllianceID = al.ID
 				s.clearAllianceRequests(target)
+				s.allianceEvent(al, allianceEventAccept, c.PlayerID, target)
 				s.membershipEvent(target, al.ID, 0)
 				success = true
 			}
@@ -244,6 +248,7 @@ func (s *Server) onAllianceKick(c *Conn, payload []byte) bool {
 			if a, ok := s.store.GetAccount(target); ok && a.AllianceID == al.ID {
 				a.AllianceID = -1
 			}
+			s.allianceEvent(al, allianceEventKick, c.PlayerID, target)
 			s.membershipEvent(target, al.ID, 1)
 			s.pushAlliance(al)
 			success = true
@@ -268,11 +273,16 @@ func (s *Server) onAllianceRoleChange(c *Conn, payload []byte) bool {
 	al, ok := s.playerAlliance(c.PlayerID)
 	success := false
 	if ok && target != c.PlayerID && s.catData.SpecByID("alliance_roles", int(role)).Exists() && s.allianceAllowed(al, c.PlayerID, "is_role_change_permitted") {
-		if _, member := al.Members[target]; member {
+		if previous, member := al.Members[target]; member {
 			if role == 3 {
 				al.Members[c.PlayerID] = 2
 			}
 			al.Members[target] = role
+			if role > previous {
+				s.allianceEvent(al, allianceEventPromote, c.PlayerID, target)
+			} else if role < previous {
+				s.allianceEvent(al, allianceEventDemote, c.PlayerID, target)
+			}
 			s.pushAlliance(al)
 			success = true
 		}
@@ -304,6 +314,7 @@ func (s *Server) leaveAlliance(pid int64) {
 		if !leader {
 			al.Members[candidate] = 3
 		}
+		s.allianceEvent(al, allianceEventLeave, pid, pid)
 		s.pushAlliance(al)
 	} else {
 		s.store.DeleteAlliance(al.ID)
@@ -319,28 +330,14 @@ func (s *Server) onAllianceSend(c *Conn, payload []byte) bool {
 	if err != nil {
 		return false
 	}
-	text = cleanSocialText(text)
+	text, length := normalizeChatText(cleanSocialText(text))
 	al, ok := s.playerAlliance(c.PlayerID)
-	if !ok || utf8.RuneCountInString(text) < 1 || utf8.RuneCountInString(text) > 500 {
+	if !ok || length < 1 || length > 500 {
 		return true
 	}
 	a, _ := s.store.GetAccount(c.PlayerID)
-	message := store.AllianceMessage{PlayerID: c.PlayerID, PlayerName: a.Name, RoleModelID: al.Members[c.PlayerID], Message: text, CreationTime: time.Now().Unix()}
-	al.Messages = append(al.Messages, message)
-	if len(al.Messages) > 100 {
-		al.Messages = al.Messages[len(al.Messages)-100:]
-	}
-	w := protocol.NewWriter()
-	allianceMessage(message).Encode(w)
-	for pid := range al.Members {
-		if c, ok := s.ConnByPlayer(pid); ok {
-			c.Send(protocol.SAllianceMessage, w.Bytes())
-		}
-	}
+	s.postAllianceMessage(al, store.AllianceMessage{PlayerID: c.PlayerID, PlayerName: a.Name, RoleModelID: al.Members[c.PlayerID], Message: text, CreationTime: time.Now().Unix()})
 	return true
-}
-func allianceMessage(m store.AllianceMessage) *protocol.AllianceMessage {
-	return &protocol.AllianceMessage{Type: m.Type, PlayerID: m.PlayerID, PlayerName: m.PlayerName, RoleModelID: max(1, m.RoleModelID), Message: m.Message, CreationTimestamp: unixSeconds(m.CreationTime)}
 }
 func (s *Server) onAllianceMessages(c *Conn) bool {
 	al, ok := s.playerAlliance(c.PlayerID)
@@ -350,7 +347,7 @@ func (s *Server) onAllianceMessages(c *Conn) bool {
 	} else {
 		w.WriteInt(int32(len(al.Messages)))
 		for _, m := range al.Messages {
-			allianceMessage(m).Encode(w)
+			s.allianceMessageFor(c, m).Encode(w)
 		}
 	}
 	return c.Send(protocol.SAllianceMessagesResponse, w.Bytes())

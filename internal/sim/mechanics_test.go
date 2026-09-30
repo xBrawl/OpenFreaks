@@ -55,7 +55,7 @@ func TestDashMovesOverTimeAndConsecutiveUltimatesExpire(t *testing.T) {
 		t.Fatal("charge teleported or second usage missing")
 	}
 	w.Advance()
-	if math.Abs(p.X-725) > 1 {
+	if math.Abs(p.X-705) > 1 {
 		t.Fatalf("first step %f; want speed/20", p.X)
 	}
 	for i := 0; i < 110; i++ {

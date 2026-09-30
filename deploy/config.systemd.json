@@ -8,10 +8,11 @@
       "dialectVersion": "tcp-v1"
     },
     "Network": {
+      "trustedProxyCidrs": ["127.0.0.1/32", "::1/128", "85.137.89.21/32"],
       "tcpBind": "0.0.0.0:9609",
       "tcpMaxFrameBytes": 33554432,
       "tcpHandshakeTimeoutSeconds": 10,
-      "tcpReadTimeoutSeconds": 120,
+      "tcpReadTimeoutSeconds": 900,
       "maxPendingSendBytes": 4194304,
       "maxPendingSendMessages": 1024,
       "internalHttpEnabled": true,
@@ -80,7 +81,7 @@
       "statusIntervalMilliseconds": 1000,
       "statusSecondsLeft": 30,
       "allocationTimeoutSeconds": 30,
-      "botFillSeconds": 12,
+      "botFillSeconds": 60,
       "battleResultGraceSeconds": 120
     }
   },
@@ -93,6 +94,7 @@
       "dialectVersion": "udp-kcp-v1"
     },
     "Network": {
+      "trustedProxyCidrs": ["127.0.0.1/32", "::1/128", "85.137.89.21/32"],
       "tcpBind": "0.0.0.0:9610",
       "tcpMaxFrameBytes": 33554432,
       "tcpHandshakeTimeoutSeconds": 10,

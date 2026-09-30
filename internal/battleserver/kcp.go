@@ -180,6 +180,27 @@ func (p *Peer) SendUnreliable(app []byte) {
 	copy(packet[10:], app)
 	p.writeLocked(packet)
 }
+
+// SendVoice отдаёт кадр голоса без гарантий: по UDP ненадёжным каналом, в
+// браузер — отдельной короткой очередью. Опоздавшая речь не нужна, поэтому при
+// заторе кадр пропадает, а соединение и снапшоты не страдают.
+func (p *Peer) SendVoice(frame []byte) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.closed || !p.authenticated || len(frame) > maxUnreliableContent {
+		return false
+	}
+	if p.web != nil {
+		return p.web.sendVoice(frame)
+	}
+	packet := make([]byte, 10+len(frame))
+	packet[0] = chanUnreliable
+	encodeSessionBE(packet, 1, p.SessionID)
+	packet[9] = hdrData
+	copy(packet[10:], frame)
+	p.writeLocked(packet)
+	return !p.closed
+}
 func (p *Peer) Tick() bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()

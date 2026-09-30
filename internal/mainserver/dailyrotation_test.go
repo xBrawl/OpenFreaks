@@ -41,3 +41,14 @@ func TestDailyPublicLocationRejectsHiddenAndUnknown(t *testing.T) {
 		t.Fatalf("unknown location accepted: %v", got)
 	}
 }
+
+// Карта, снятая с ротации, но оставшаяся выбранной у клиента, ведёт на карту
+// дня того же режима, а не отменяет поиск.
+func TestDailyPublicLocationRedirectsHiddenToVisibleSibling(t *testing.T) {
+	hidden := &content.Location{Id: 1, Mode: "bounty", Hidden: true}
+	visible := &content.Location{Id: 2, Mode: "bounty"}
+	cat := &content.CatalogData{Locations: []*content.Location{hidden, visible}, LocByID: map[int]*content.Location{1: hidden, 2: visible}}
+	if got := dailyPublicLocation(cat, 1, time.Now()); got != visible {
+		t.Fatalf("hidden location was not redirected: %v", got)
+	}
+}

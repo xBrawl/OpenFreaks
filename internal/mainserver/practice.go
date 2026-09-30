@@ -40,23 +40,10 @@ func (s *Server) joinPractice(c *Conn, location int32) bool {
 	message := &protocol.BattleStartedMsg{ParticipantType: protocol.ParticipantPlayer, LocationName: grant.LocationName, OwnIndex: int32(grant.OwnIndex), OwnTeam: int32(grant.OwnTeam), Host: grant.Host, Port: int32(grant.Port), SessionID: grant.SessionID}
 	for _, p := range grant.Players {
 		a.Players = append(a.Players, store.BattleParticipant{PlayerID: p.PlayerID, Name: p.Name, Index: p.Index, Team: p.Team, IsBot: p.IsBot, CharacterModelID: p.ModelID, HPLevel: p.HPLevel, DamageLevel: p.DamageLevel, SpeedLevel: p.SpeedLevel, DashID: p.DashID, UltID: p.UltID, StarPowerID: p.StarPowerID, TestBalance: p.TestBalance})
-		item := protocol.BattleStartedPlayer{Name: p.Name, ModelID: p.ModelID, Index: int32(p.Index), Team: int32(p.Team), HPLevel: p.HPLevel, DamageLevel: p.DamageLevel, SpeedLevel: p.SpeedLevel, DashID: p.DashID, UltimateUpgradeID: p.UltID}
-		message.Players = append(message.Players, item)
-		if p.PlayerID == c.PlayerID {
-			for _, peer := range grant.Players {
-				if peer.PlayerID == c.PlayerID || peer.IsBot {
-					continue
-				}
-				if connection, ok := s.ConnByPlayer(peer.PlayerID); ok && connection.BattleID == grant.BattleID {
-					w := protocol.NewWriter()
-					item.Encode(w)
-					connection.Send(protocol.SBattlePlayerJoined, w.Bytes())
-				}
-			}
-		}
+		message.Players = append(message.Players, protocol.BattleStartedPlayer{PlayerID: p.PlayerID, Name: p.Name, ModelID: p.ModelID, Index: int32(p.Index), Team: int32(p.Team), HPLevel: p.HPLevel, DamageLevel: p.DamageLevel, SpeedLevel: p.SpeedLevel, DashID: p.DashID, UltimateUpgradeID: p.UltID})
 	}
 	s.store.Meta.Allocations[grant.BattleID] = a
 	c.BattleID = grant.BattleID
-	return c.Send(protocol.SBattleStarted, message.Encode())
+	return s.sendBattleStarted(c, message)
 }
 func practiceBattle(id string) bool { return strings.HasPrefix(id, "practice:") }

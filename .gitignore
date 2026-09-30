@@ -13,3 +13,4 @@
 !.env.example
 *.local
 *.replay.gz
+*.test.exe

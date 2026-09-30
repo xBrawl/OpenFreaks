@@ -16,7 +16,7 @@ func BotStep(w *World, tick int) {
 		return
 	}
 	for _, bot := range w.Players {
-		if (!bot.IsBot && !bot.BotControlled) || !bot.Alive || bot.Abandoned || bot.IsBall() || bot.ControlRemoved || (tick+bot.Index)%4 != 0 {
+		if (!bot.IsBot && !bot.BotControlled) || !bot.Alive || bot.Abandoned || bot.IsBall() || bot.ControlRemoved || karityBusy(bot) || (tick+bot.Index)%4 != 0 {
 			continue
 		}
 		if bot.Brain == nil {
@@ -29,6 +29,9 @@ func BotStep(w *World, tick int) {
 			brain.Stuck = 0
 		}
 		brain.Position = navPoint{bot.X, bot.Y}
+		if modeBot(w, bot, tick) {
+			continue
+		}
 		enemy := nearestEnemy(w, bot)
 		goal := navPoint{w.Tiles.PixW / 2, w.Tiles.PixH / 2}
 		if enemy != nil && len(bot.Skills) > 0 {
@@ -64,6 +67,11 @@ func BotStep(w *World, tick int) {
 			a := float64(bot.Index) * 2.4
 			goal = navPoint{w.Tiles.PixW/2 + math.Cos(a)*420, w.Tiles.PixH/2 + math.Sin(a)*420}
 		}
+		if w.modes.karitGrab != nil {
+			if g, ok := karitGrabGoal(w, bot, enemy); ok {
+				goal = g
+			}
+		}
 		if w.Ball != nil && w.RoundResetTicks == 0 {
 
 			goal = footballGoal(w, bot, tick)
@@ -87,7 +95,15 @@ const (
 	ballPressStandby = 300.0
 )
 
+// ballMouth — середина ворот, в которые бьёт команда team.
 func ballMouth(w *World, team int) navPoint {
+	if w.BallHorizontal() {
+		x := w.Tiles.PixW - 900
+		if team != 0 {
+			x = 900
+		}
+		return navPoint{x, w.Tiles.PixH / 2}
+	}
 	y := 900.0
 	if team != 0 {
 		y = w.Tiles.PixH - 900
@@ -177,8 +193,13 @@ func shootBall(w *World, bot *Player, target navPoint, tick int) {
 	if !shotClear(w, bot.X, bot.Y, target.x, target.y, &Skill{}) {
 		return
 	}
-	x := target.x + math.Sin(float64(tick+bot.Index*23)*.41)*ballAimError
-	ThrowBall(w, bot, protocol.PlayerAction{X: int(x - bot.X), Y: int(target.y - bot.Y)}, false)
+	// Разброс — поперёк створа.
+	miss := math.Sin(float64(tick+bot.Index*23)*.41) * ballAimError
+	x, y := target.x+miss, target.y
+	if w.BallHorizontal() {
+		x, y = target.x, target.y+miss
+	}
+	ThrowBall(w, bot, protocol.PlayerAction{X: int(x - bot.X), Y: int(y - bot.Y)}, false)
 }
 
 func nearestEnemy(w *World, bot *Player) *Player {

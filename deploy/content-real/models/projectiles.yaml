@@ -186,3 +186,55 @@
   gravity: 150
   early_ticks: 2
   is_indirect: true
+  spawn_area_effect_name: karity_spit_puddle
+
+# КРОЛИК
+- name: rabbit_laser_projectile
+  speed: 9000
+  radius: 70
+  early_ticks: 1
+  pushback_strength: 0
+  passes_environment: false
+  pierces_environment: false
+  pierces_characters: true
+  freeze_strength: 20
+  freeze_duration_ms: 1000
+  freeze_ignores_bosses: true
+
+- name: rabbit_tv_throw_projectile
+  speed: 2600
+  radius: 0
+  gravity: 400
+  early_ticks: 2
+  is_indirect: true
+  spawn_area_effect_name: rabbit_tv_deploy
+
+- name: rabbit_tv_number_projectile
+  speed: 3200
+  radius: 90
+  early_ticks: 2
+  pushback_strength: 0
+  passes_environment: false
+  pierces_environment: false
+  pierces_characters: false
+
+# КАРИТИ: эмодзи-залп шара (sim/karity.go, фаза 0). Летит прямо, не сквозь
+# стены; урон задаёт karity.go. Клиент рисует на каждом свой смайл.
+- name: karity_emoji_projectile
+  speed: 1800
+  radius: 110
+  early_ticks: 2
+  pushback_strength: 0
+  passes_environment: false
+  pierces_environment: false
+  pierces_characters: false
+
+# КОШМАР: пуля револьвера детектива. Быстрая, стены не пробивает.
+- name: nightmare_revolver_bullet
+  speed: 5200
+  radius: 90
+  early_ticks: 1
+  pushback_strength: 0
+  passes_environment: false
+  pierces_environment: false
+  pierces_characters: false

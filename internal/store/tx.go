@@ -436,6 +436,11 @@ func cloneAccount(a *Account) *Account {
 	cp.Characters = clonePtrMap(a.Characters)
 	cp.OwnedSkins = cloneMap(a.OwnedSkins)
 	cp.TokenHash = cloneBytes(a.TokenHash)
+	if a.Ban != nil {
+		ban := *a.Ban
+		cp.Ban = &ban
+	}
+	cp.Bans = cloneSlice(a.Bans)
 	if a.DeviceTokens != nil {
 		cp.DeviceTokens = make([][]byte, 0, len(a.DeviceTokens))
 		for _, t := range a.DeviceTokens {
@@ -464,6 +469,7 @@ func cloneTeam(t *Team) *Team {
 	cp.Members = clonePtrMap(t.Members)
 	cp.Pending = cloneMap(t.Pending)
 	cp.PendingAt = cloneMap(t.PendingAt)
+	cp.Messages = cloneSlice(t.Messages)
 	return &cp
 }
 

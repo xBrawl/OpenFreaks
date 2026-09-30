@@ -112,6 +112,10 @@ func (h *HTTPBattleAllocator) Leave(id string, pid int64) bool {
 	var result map[string]any
 	return h.lifecycle("/leave", id, pid, &result) == nil
 }
+func (h *HTTPBattleAllocator) Emote(id string, pid int64) bool {
+	var result map[string]any
+	return h.lifecycle("/emote", id, pid, &result) == nil
+}
 
 func (h *HTTPBattleAllocator) RoomStatus(ids []string) (map[string]bool, error) {
 	body, err := json.Marshal(ids)
@@ -163,7 +167,9 @@ func main() {
 func battleConfig(cfg config.Root) battleserver.Config {
 	b := cfg.Battle
 	return battleserver.Config{
-		UDPBind: b.Network.UDPBind, AdvertisedHost: b.Network.UDPAdvertisedHost,
+		TrustedProxyCIDRs: b.Network.TrustedProxyCIDRs,
+		AllowMegaBossBots: cfg.Main.Testing.EnableBots || b.Testing.EnableBots,
+		UDPBind:           b.Network.UDPBind, AdvertisedHost: b.Network.UDPAdvertisedHost,
 		ReplayDir:      filepath.Join(b.Persistence.ResultOutboxPath, "replays"),
 		AdvertisedPort: b.Network.UDPAdvertisedPort,
 		MaxPeers:       max1(b.Network.MaxPeers, 64), MaxPerAddress: max1(b.Network.MaxPeersPerAddress, 8),
@@ -267,10 +273,7 @@ func run(ctx context.Context, cfg config.Root, mode string, log *slog.Logger) er
 		defer cleanup()
 		var allocator mainserver.BattleAllocator = battleSrv
 		if mode == "main" {
-			secret := cfg.Main.BattleServer.SharedSecret
-			if secret == "" {
-				secret = cfg.Main.InternalSecret()
-			}
+			secret := cfg.Main.BattleServer.Secret(cfg.Main.InternalSecret())
 			allocator = &HTTPBattleAllocator{baseURL: cfg.Main.BattleServer.BaseURL, secret: secret, timeout: 5 * time.Second}
 		}
 		mainSrv = mainserver.NewServer(cfg.Main, st, content.Load(root), cat, allocator, cfg.Battle.Network.UDPAdvertisedHost, cfg.Battle.Network.UDPAdvertisedPort, log, nil)
@@ -285,10 +288,7 @@ func run(ctx context.Context, cfg config.Root, mode string, log *slog.Logger) er
 				return fmt.Errorf("main did not commit result")
 			}
 			target := cfg.Battle.MainServer
-			secret := target.SharedSecret
-			if secret == "" {
-				secret = cfg.Battle.InternalSecret()
-			}
+			secret := target.Secret(cfg.Battle.InternalSecret())
 			if target.BaseURL == "" {
 				return fmt.Errorf("main endpoint missing")
 			}

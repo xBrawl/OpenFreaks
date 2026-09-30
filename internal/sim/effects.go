@@ -33,6 +33,10 @@ func giveShieldFrom(p, source *Player, amount, ticks int) {
 	}
 }
 func AddStatus(w *World, p *Player, kind string, value, ticks, source int) {
+	// Пациент Зеро: стан и замедления вдвое короче (control_resistance_percent).
+	if resist := p.Definition.Int("control_resistance_percent"); resist > 0 && (kind == "stun" || kind == "speed" && value < 0) {
+		ticks = max(1, ticks*(100-min(90, resist))/100)
+	}
 	for i, e := range p.Effects {
 		if e.Kind == kind && e.Source == source {
 			p.Effects[i] = StatusEffect{kind, value, source, w.TickNum + int32(max(1, ticks))}
@@ -176,7 +180,10 @@ func TickEffects(w *World) {
 		if w.TickNum >= a.NextPulseTick {
 			kind := d.String("type_name", d.String("type"))
 			for _, p := range w.Characters() {
-				if !p.Alive || p.IsBall() || Dist(p.X, p.Y, a.X, a.Y) > float64(radius) {
+				if !p.Alive || p.IsBall() {
+					continue
+				}
+				if d := Dist(p.X, p.Y, a.X, a.Y); isTitan(p) && bodyDist(p, a.X, a.Y) > float64(radius) || !isTitan(p) && d > float64(radius) {
 					continue
 				}
 				if p.ObjectIndex == a.OwnerIndex && (d.Bool("area_effect_cannot_affect_owner") || d.Bool("area_effect_cannot_damage_owner")) {
@@ -221,7 +228,7 @@ func TickEffects(w *World) {
 					dx, dy := p.X-a.X, p.Y-a.Y
 					distance := math.Hypot(dx, dy)
 					push := float64(d.Int("pushback_strength"))
-					if push != 0 && distance > float64(d.Int("pushback_dead_zone")) {
+					if push != 0 && distance > float64(d.Int("pushback_dead_zone")) && infectionPushAllowed(w, p) {
 						movePlayer(w, p, dx/math.Max(1, distance)*push, dy/math.Max(1, distance)*push)
 					}
 				}

@@ -20,6 +20,7 @@ func (s *Server) sendHome(c *Conn) bool {
 		Onboarding: acc.Onboarding, Karit: acc.Wallet.Karit, Sparks: acc.Wallet.Sparks,
 		VoidGems: acc.Wallet.VoidGems, UpgradeTokens: acc.Wallet.UpgradeTokens,
 		PassPoints: acc.Wallet.PassPoints, AllianceID: acc.AllianceID,
+		Social:     s.socialFor(c, acc.PlayerID),
 		PassSeason: int32(meta.Pass.Season), PassSeasonEnd: meta.Pass.EndsAt, PassTier: int32(meta.Pass.Tier), ClaimedFree: int64(meta.Pass.ClaimedFree), ClaimedPremium: int64(meta.Pass.ClaimedPremium), ClaimedPlus: int64(meta.Pass.ClaimedPremiumPlus),
 	}
 	for _, ch := range acc.Characters {

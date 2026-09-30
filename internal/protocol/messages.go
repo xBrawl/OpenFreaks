@@ -7,6 +7,9 @@ import "errors"
 var ErrTrailingBytes = errors.New("protocol: trailing bytes after decode")
 
 type BattleStartedPlayer struct {
+	// PlayerID и Role не пишутся в игрока: роли идут хвостом сообщения.
+	PlayerID          int64
+	Role              int32
 	Name              string
 	ModelID           int32
 	Index             int32
@@ -172,6 +175,7 @@ type TeamMember struct {
 	State            int32
 	IsOwner          bool
 	Trophies         int32
+	Social           Social
 }
 
 func (m *TeamMember) Encode(w *Writer) {
@@ -187,18 +191,44 @@ func (m *TeamMember) Encode(w *Writer) {
 	w.WriteInt(m.State)
 	w.WriteBool(m.IsOwner)
 	w.WriteInt(m.Trophies)
+	m.Social.Encode(w)
 }
 
 type TeamPendingMember struct {
 	PlayerID   int64
 	PlayerName string
 	Type       int32
+	Social     Social
 }
 
 func (m *TeamPendingMember) Encode(w *Writer) {
 	w.WriteLong(m.PlayerID)
 	w.WriteString(m.PlayerName)
 	w.WriteInt(m.Type)
+	m.Social.Encode(w)
+}
+
+// TeamMessage — сообщение чата отряда (только клиентам с FeatureSocialV2).
+type TeamMessage struct {
+	PlayerID   int64
+	PlayerName string
+	Avatar     int32
+	// Role пишется после аватарки только клиентам с FeatureStaff.
+	Role      int32
+	WithRole  bool
+	Text      string
+	Timestamp int64
+}
+
+func (m *TeamMessage) Encode(w *Writer) {
+	w.WriteLong(m.PlayerID)
+	w.WriteString(m.PlayerName)
+	w.WriteInt(m.Avatar)
+	if m.WithRole {
+		w.WriteInt(m.Role)
+	}
+	w.WriteString(m.Text)
+	w.WriteLong(m.Timestamp)
 }
 
 type AlliancePlayer struct {
@@ -207,6 +237,7 @@ type AlliancePlayer struct {
 	RoleModelID   int32
 	IsOnline      bool
 	LastOnlineAgo int32
+	Social        Social
 }
 
 func (m *AlliancePlayer) Encode(w *Writer) {
@@ -215,6 +246,7 @@ func (m *AlliancePlayer) Encode(w *Writer) {
 	w.WriteInt(m.RoleModelID)
 	w.WriteBool(m.IsOnline)
 	w.WriteInt(m.LastOnlineAgo)
+	m.Social.Encode(w)
 }
 
 type Alliance struct {
@@ -254,6 +286,7 @@ type AllianceMessage struct {
 	EventPlayerName      string
 	EventPlayerRoleModel int32
 	CreationTimestamp    int64
+	Social               Social
 }
 
 func (m *AllianceMessage) Encode(w *Writer) {
@@ -270,6 +303,7 @@ func (m *AllianceMessage) Encode(w *Writer) {
 		w.WriteInt(m.EventPlayerRoleModel)
 	}
 	w.WriteLong(m.CreationTimestamp)
+	m.Social.Encode(w)
 }
 
 type FriendEntry struct {
@@ -279,6 +313,7 @@ type FriendEntry struct {
 	Status        int32
 	IsOnline      bool
 	LastOnlineAgo int32
+	Social        Social
 }
 
 func (f *FriendEntry) Encode(w *Writer) {
@@ -288,6 +323,7 @@ func (f *FriendEntry) Encode(w *Writer) {
 	w.WriteInt(f.Status)
 	w.WriteBool(f.IsOnline)
 	w.WriteInt(f.LastOnlineAgo)
+	f.Social.Encode(w)
 }
 
 type PlayerData struct {
@@ -302,6 +338,46 @@ type PlayerData struct {
 	AllianceID   int64
 	AllianceName string
 	AllianceRole int32
+	Social       Social
+	// Stats — только для клиентов с FeatureProfileStats.
+	Stats *ProfileStats
+	// Ban — только для клиентов с FeatureStaff (пустой — не заблокирован).
+	Ban *BanInfo
+}
+
+// BanInfo — блокировка игрока: причина (0 — нет), конец (unix-секунды, 0 —
+// навсегда), конкретная причина и кто наложил.
+type BanInfo struct {
+	Reason int32
+	Until  int64
+	Note   string
+	By     string
+}
+
+func (b *BanInfo) Encode(w *Writer) {
+	w.WriteInt(b.Reason)
+	w.WriteLong(b.Until)
+	w.WriteString(b.Note)
+	w.WriteString(b.By)
+}
+
+func EncodeBanned(b *BanInfo) []byte {
+	w := NewWriter()
+	b.Encode(w)
+	return w.Bytes()
+}
+
+// EncodeStaffResponse — ответ на действие модератора: код (0 — готово) и текст.
+func EncodeStaffResponse(code int32, text string) []byte {
+	w := NewWriter()
+	w.WriteInt(code)
+	w.WriteString(text)
+	return w.Bytes()
+}
+
+// ProfileStats — карьера игрока для экрана профиля.
+type ProfileStats struct {
+	Kills, Deaths, Battles, PlaySeconds, PowerPoints int32
 }
 
 func (p *PlayerData) Encode(w *Writer) {
@@ -317,6 +393,17 @@ func (p *PlayerData) Encode(w *Writer) {
 		w.WriteLong(p.AllianceID)
 		w.WriteString(p.AllianceName)
 		w.WriteInt(p.AllianceRole)
+	}
+	p.Social.Encode(w)
+	if st := p.Stats; st != nil {
+		w.WriteInt(st.Kills)
+		w.WriteInt(st.Deaths)
+		w.WriteInt(st.Battles)
+		w.WriteInt(st.PlaySeconds)
+		w.WriteInt(st.PowerPoints)
+	}
+	if p.Ban != nil {
+		p.Ban.Encode(w)
 	}
 }
 
@@ -401,6 +488,16 @@ type BattleLog struct {
 	TrophyDelta     int32
 	StartTimestamp  int64
 	TotalTicks      int32
+	// V2 — клиент поднял FeatureBattleLogV2: дописываются роли (по одной на
+	// игрока, в порядке Players) и лучшие моменты.
+	V2         bool
+	Roles      []int32
+	Highlights []BattleLogHighlight
+}
+
+// BattleLogHighlight — момент боя; Player — позиция в BattleLog.Players (-1 — никто).
+type BattleLogHighlight struct {
+	Tick, Kind, Player, Count int32
 }
 
 func (b *BattleLog) Encode(w *Writer) {
@@ -413,6 +510,23 @@ func (b *BattleLog) Encode(w *Writer) {
 	w.WriteInt(b.TrophyDelta)
 	w.WriteLong(b.StartTimestamp)
 	w.WriteInt(b.TotalTicks)
+	if !b.V2 {
+		return
+	}
+	for i := range b.Players {
+		role := int32(0)
+		if i < len(b.Roles) {
+			role = b.Roles[i]
+		}
+		w.WriteInt(role)
+	}
+	w.WriteInt(int32(len(b.Highlights)))
+	for _, h := range b.Highlights {
+		w.WriteInt(h.Tick)
+		w.WriteInt(h.Kind)
+		w.WriteInt(h.Player)
+		w.WriteInt(h.Count)
+	}
 }
 
 type BattlePlayerLevel struct {
@@ -448,9 +562,59 @@ func (a *AugmentSlot) Encode(w *Writer) {
 	w.WriteInt(a.RerollsLeft)
 }
 
+// FeatureSocialV2 — сервер умеет аватарки и эмодзи в чате шайки. Байт
+// приветствия раньше всегда был нулём, и клиенты читали его не глядя, поэтому
+// старые сборки флаг просто не замечают.
+const FeatureSocialV2 = 1
+
+// FeatureBotsNow — в поиске можно не ждать людей и сразу позвать ботов
+// (CMatchmakingBotsNow). Старый сервер закрыл бы соединение на незнакомом id,
+// поэтому клиент показывает кнопку только при этом флаге.
+const FeatureBotsNow = 2
+
+// FeatureProfileStats — в профиле настоящая статистика (ProfileStats в конце
+// PlayerData). Клиент читает ответ строго, поэтому хвост идёт только тем, кто
+// поднял этот бит в Login.
+const FeatureProfileStats = 4
+
+// FeatureStaff — служебные роли и блокировки: роль хвостом записи игрока
+// (после аватарки), роли в BattleStarted, блокировка в профиле, SBanned и
+// команды модерации 70–72.
+const FeatureStaff = 8
+
+// FeatureBattleLogV2 — в логе боёв роли игроков в режиме (убийца, зомби…) и
+// лучшие моменты боя: хвост каждой записи BattleLog для поднявших этот бит.
+const FeatureBattleLogV2 = 16
+
 func EncodeServerHello() []byte {
 	w := NewWriter()
-	w.WriteByte(0)
+	w.WriteByte(FeatureSocialV2 | FeatureBotsNow | FeatureProfileStats | FeatureStaff | FeatureBattleLogV2)
+	return w.Bytes()
+}
+
+// Social — хвост записи игрока для клиентов с FeatureSocialV2: аватарка
+// (модель героя). Старым клиентам не пишется ничего, их формат не меняется.
+type Social struct {
+	Enabled bool
+	Avatar  int32
+	// Staff — клиент понимает FeatureStaff: после аватарки идёт роль.
+	Staff bool
+	Role  int32
+}
+
+func (s Social) Encode(w *Writer) {
+	if s.Enabled {
+		w.WriteInt(s.Avatar)
+	}
+	if s.Staff {
+		w.WriteInt(s.Role)
+	}
+}
+
+func EncodeSetAvatar(ok bool, avatar int32) []byte {
+	w := NewWriter()
+	w.WriteBool(ok)
+	w.WriteInt(avatar)
 	return w.Bytes()
 }
 
@@ -489,6 +653,8 @@ type BattleStartedMsg struct {
 	VoicePort            int32
 	VoiceToken           string
 	StopSpectateDisabled bool
+	// WithRoles — клиент понимает FeatureStaff: в конце роли игроков по порядку.
+	WithRoles bool
 }
 
 func (m *BattleStartedMsg) Encode() []byte {
@@ -511,6 +677,11 @@ func (m *BattleStartedMsg) Encode() []byte {
 	w.WriteInt(m.VoicePort)
 	w.WriteString(m.VoiceToken)
 	w.WriteBool(m.StopSpectateDisabled)
+	if m.WithRoles {
+		for i := range m.Players {
+			w.WriteInt(m.Players[i].Role)
+		}
+	}
 	return w.Bytes()
 }
 
@@ -569,6 +740,7 @@ type HomeDataMsg struct {
 	ClaimedPremium int64
 	ClaimedPlus    int64
 	OwnedSkins     []int32
+	Social         Social
 }
 
 func (m *HomeDataMsg) Encode() []byte {
@@ -605,6 +777,7 @@ func (m *HomeDataMsg) Encode() []byte {
 	for _, v := range m.OwnedSkins {
 		w.WriteInt(v)
 	}
+	m.Social.Encode(w)
 	return w.Bytes()
 }
 
@@ -632,6 +805,7 @@ type LoginReq struct {
 	PassToken   string
 	PassIsNull  bool
 	ClientBuild int32
+	Features    int32
 }
 
 func DecodeLogin(payload []byte) (*LoginReq, error) {
@@ -648,10 +822,17 @@ func DecodeLogin(payload []byte) (*LoginReq, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Возможности клиента дописывает только сборка, увидевшая их в приветствии.
+	var features int32
+	if !r.Ended() {
+		if features, err = r.ReadInt(); err != nil {
+			return nil, err
+		}
+	}
 	if !r.Ended() {
 		return nil, ErrTrailingBytes
 	}
-	return &LoginReq{PlayerID: pid, PassToken: tok, PassIsNull: isNull, ClientBuild: build}, nil
+	return &LoginReq{PlayerID: pid, PassToken: tok, PassIsNull: isNull, ClientBuild: build, Features: features}, nil
 }
 
 type StartBattleReq struct {

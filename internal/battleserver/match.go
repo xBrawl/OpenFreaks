@@ -39,6 +39,15 @@ type Result struct {
 	DurationMs int64
 
 	Aborted bool
+	// PlayerRanks — места по индексу в составе, если режим делит победу не по
+	// командам (Кошмар, Заражение). Пусто — места считаются по командам.
+	PlayerRanks map[int]int `json:",omitempty"`
+	// PlayerRoles — роли в режиме (sim.Role*) по индексу; Highlights — лучшие
+	// моменты боя для лога (кнопки перемотки реплея).
+	PlayerRoles map[int]int     `json:",omitempty"`
+	Highlights  []sim.Highlight `json:",omitempty"`
+	// Cheaters — пойманные античитом; главный сервер их блокирует.
+	Cheaters []CheatReport `json:",omitempty"`
 
 	AbortReason string
 }
@@ -75,9 +84,11 @@ type Match struct {
 	result            *Result
 	onResult          func(*Result)
 	started           time.Time
-	rateWindow        map[int][2]int64
+	inputGuards       map[int]*inputGuard
 	pendingWalk       map[int]protocol.PlayerAction
 	pendingMu         sync.Mutex
+	voice             *voiceRoom
+	cheats            cheatMeter
 }
 
 func NewMatch(id string, world *sim.World, parts []*Participant, sessions map[int]int64, onResult func(*Result)) *Match {
@@ -90,13 +101,18 @@ func NewMatch(id string, world *sim.World, parts []*Participant, sessions map[in
 		inputs:      make(chan inputItem, 4096),
 		done:        make(chan struct{}),
 		onResult:    onResult,
-		rateWindow:  map[int][2]int64{},
+		inputGuards: map[int]*inputGuard{},
 		pendingWalk: map[int]protocol.PlayerAction{},
 		peerSeq:     map[int]int64{},
 	}
 	for _, p := range parts {
 		m.parts[p.Index] = p
 	}
+	mode := ""
+	if world != nil {
+		mode = world.ModeName
+	}
+	m.voice = newVoiceRoom(mode, m.parts)
 	return m
 }
 
@@ -116,6 +132,7 @@ func (m *Match) AttachPeer(index int, peer *Peer) bool {
 	m.generations[index]++
 	generation := m.generations[index]
 	m.peers[index] = peer
+	m.voice.resetPlayer(index)
 	m.peerMu.Unlock()
 	m.resetInputState(index)
 	peer.mu.Lock()
@@ -127,13 +144,12 @@ func (m *Match) AttachPeer(index int, peer *Peer) bool {
 }
 
 func (m *Match) resetInputState(index int) {
+	m.actionMu.Lock()
+	defer m.actionMu.Unlock()
 	m.pendingMu.Lock()
 	delete(m.pendingWalk, index)
 	delete(m.pendingGeneration, index)
 	m.pendingMu.Unlock()
-	m.actionMu.Lock()
-	delete(m.rateWindow, index)
-	m.actionMu.Unlock()
 }
 
 func (m *Match) generationOf(index int) int64 {
@@ -144,62 +160,67 @@ func (m *Match) generationOf(index int) int64 {
 
 func (m *Match) handleApp(index int, payload []byte) { m.handleAppGeneration(index, payload, 0) }
 func (m *Match) handleAppGeneration(index int, payload []byte, generation int64) {
-	m.actionMu.Lock()
-	defer m.actionMu.Unlock()
-	if len(payload) < 6 {
-		return
-	}
 	id, length, ok := protocol.TryReadBattleClientFrame(payload)
-	if !ok {
-		return
-	}
-	body := payload[6:]
-	if len(body) < length {
-		return
-	}
-	body = body[:length]
-	switch id {
-	case protocol.UdpClientHello:
-
-	case protocol.UdpPlayerActions:
-		actions, err := protocol.DecodePlayerActions(body)
-		if err != nil {
+	validFrame := ok && length >= 0 && len(payload) >= 6 && length <= len(payload)-6
+	// Голос имеет собственные лимиты и не расходует бюджет игровых команд.
+	if validFrame {
+		body := payload[6 : 6+length]
+		switch id {
+		case protocol.UdpVoiceFrame:
+			m.handleVoiceFrame(index, body, generation)
+			return
+		case protocol.UdpVoiceState:
+			m.handleVoiceState(index, body, generation)
 			return
 		}
-		n := nowMs()
-		for _, a := range actions {
-
-			rw := m.rateWindow[index]
-			if n-rw[0] > 50 {
-				rw = [2]int64{n, 0}
-			}
-			if rw[1] >= 16 {
-				continue
-			}
-			rw[1]++
-			m.rateWindow[index] = rw
-			if a.Type == protocol.ActionWalk {
-
-				m.pendingMu.Lock()
-				m.pendingWalk[index] = a
-				m.pendingGeneration[index] = generation
-				m.pendingMu.Unlock()
-				continue
-			}
-			select {
-			case m.inputs <- inputItem{generation: generation, index: index, action: a}:
-			default:
-
-				select {
-				case <-m.inputs:
-				default:
-				}
-				select {
-				case m.inputs <- inputItem{generation: generation, index: index, action: a}:
-				default:
-				}
-			}
+	}
+	m.actionMu.Lock()
+	defer m.actionMu.Unlock()
+	p := m.parts[index]
+	if p == nil || p.IsBot || generation != m.generationOf(index) || m.inputBlocked(index) {
+		return
+	}
+	now := time.Now()
+	g := m.inputState(index)
+	if !g.allowPacket(now, len(payload)) {
+		return
+	}
+	if !validFrame {
+		m.inputError(index, "повреждённый заголовок", now)
+		return
+	}
+	if id != protocol.UdpPlayerActions {
+		return
+	}
+	if length > maxActionBodyBytes || len(payload) > 6+maxActionBodyBytes {
+		m.inputError(index, "слишком большой пакет действий", now)
+		return
+	}
+	actions, err := protocol.DecodePlayerActions(payload[6 : 6+length])
+	if err != nil {
+		m.inputError(index, "повреждённые действия", now)
+		return
+	}
+	// Проверяем пакет целиком до любых побочных эффектов: неизвестный тип
+	// не должен оставлять в очереди соседние корректные действия.
+	for _, a := range actions {
+		if a.Type < 0 || a.Type > maxActionType {
+			m.inputError(index, "неизвестные действия", now)
+			return
 		}
+	}
+	if !g.actions.allow(now, len(actions), inputActionsPerSecond, inputActionBurst) {
+		return
+	}
+	for _, a := range actions {
+		if a.Type == protocol.ActionWalk {
+			m.pendingMu.Lock()
+			m.pendingWalk[index] = a
+			m.pendingGeneration[index] = generation
+			m.pendingMu.Unlock()
+			continue
+		}
+		m.enqueueInput(inputItem{generation: generation, index: index, action: a})
 	}
 }
 
@@ -275,8 +296,24 @@ func (m *Match) Run(readinessTimeout time.Duration, tickMs int, introTicks int, 
 				m.finish()
 				return
 			}
+			// Тестовая арена бесконечна: когда игрок ушёл, комната закрывается без итогов.
+			if m.World.Endless && !m.hasHumans() {
+				m.finishAborted("practice_left")
+				return
+			}
 		}
 	}
+}
+
+func (m *Match) hasHumans() bool {
+	m.peerMu.Lock()
+	defer m.peerMu.Unlock()
+	for index, part := range m.parts {
+		if part != nil && !part.IsBot && !m.departed[index] {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *Match) TickDebt() int64 { return m.tickDebt.Load() }
@@ -296,6 +333,7 @@ func (m *Match) tickOnce(steps int) (ok bool) {
 		}
 	}
 	m.sendSnapshots()
+	m.refreshVoiceProximity()
 	return true
 }
 
@@ -342,25 +380,32 @@ func (m *Match) doTick() {
 	}
 	m.peerMu.Unlock()
 
+	m.drainInputs()
+	m.World.Advance()
+}
+
+func (m *Match) drainInputs() {
+	m.actionMu.Lock()
+	defer m.actionMu.Unlock()
 	m.pendingMu.Lock()
 	for idx, a := range m.pendingWalk {
-		if p := m.findPlayer(idx); p != nil && p.Alive && m.pendingGeneration[idx] == m.generationOf(idx) {
-			p.ApplyWalk(a.X, a.Y)
-		}
+		m.applyAction(inputItem{index: idx, generation: m.pendingGeneration[idx], action: a})
 	}
 	clear(m.pendingWalk)
+	clear(m.pendingGeneration)
 	m.pendingMu.Unlock()
 
 	for i := 0; i < 512; i++ {
 		select {
 		case it := <-m.inputs:
+			if g := m.inputGuards[it.index]; g != nil && g.queued > 0 {
+				g.queued--
+			}
 			m.applyAction(it)
 		default:
-			goto drained
+			return
 		}
 	}
-drained:
-	m.World.Advance()
 }
 
 func (m *Match) findPlayer(index int) *sim.Player {
@@ -372,8 +417,9 @@ func (m *Match) findPlayer(index int) *sim.Player {
 	return nil
 }
 
+// applyAction вызывается под worldMu и actionMu.
 func (m *Match) applyAction(it inputItem) {
-	if it.generation != m.generationOf(it.index) {
+	if m.inputBlocked(it.index) || it.generation != m.generationOf(it.index) {
 		return
 	}
 	p := m.findPlayer(it.index)
@@ -401,9 +447,14 @@ func (m *Match) applyAction(it inputItem) {
 			sim.TryCast(m.World, p, sk, a, ultimate)
 		}
 	case protocol.ActionUltOn:
-		p.UltActive = true
+		// В Кошмаре эта кнопка — фонарь: включит ли он, решает режим (батарея).
+		if !sim.ModeUltToggle(m.World, p, true) {
+			p.UltActive = true
+		}
 	case protocol.ActionUltOff:
-		p.UltActive = false
+		if !sim.ModeUltToggle(m.World, p, false) {
+			p.UltActive = false
+		}
 	case protocol.ActionDash:
 		sim.TryDash(m.World, p, a)
 	}
@@ -467,6 +518,22 @@ func (m *Match) emitResult(abortReason string) {
 		WinnerTeam: m.World.WinnerTeam, TeamPoints: append([]int(nil), m.World.TeamPoints...),
 		Players: m.World.Players, DurationMs: int64(time.Since(m.started).Milliseconds()),
 		Aborted: abortReason != "", AbortReason: abortReason,
+		Cheaters: m.cheaters(),
+	}
+	if abortReason == "" {
+		r.Highlights = m.World.Highlights()
+		if len(m.World.PlayerRoles) > 0 {
+			r.PlayerRoles = map[int]int{}
+			for index, role := range m.World.PlayerRoles {
+				r.PlayerRoles[index] = role
+			}
+		}
+	}
+	if abortReason == "" && len(m.World.PlayerRanks) > 0 {
+		r.PlayerRanks = map[int]int{}
+		for index, rank := range m.World.PlayerRanks {
+			r.PlayerRanks[index] = rank
+		}
 	}
 	m.result = r
 	if m.replay != nil && m.onReplay != nil {

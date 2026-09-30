@@ -125,8 +125,9 @@
   respawn_ticks: 200
   is_dps_calculation_enabled: true
 - name: test_arena
-  # Одиннадцатая команда — босс Karity: десять мест игроков остаются целыми.
-  team_count: 11
+  # Личная комната: игрок (команда 0) против шара Карити (команда 1),
+  # battleserver/practice.go.
+  team_count: 2
   team_player_count: 1
   duration_ticks: 2000000000
   respawn_ticks: 100
@@ -136,4 +137,49 @@
   team_player_count: 6
   max_players: 7 # 3–6 players and one server-controlled boss
   duration_ticks: 3600 # three minutes at 20 ticks per second
+  respawn_ticks: 100
+
+# ── НОВЫЕ РЕЖИМЫ (26.09) ─────────────────────────────────────────────────
+# Кошмар в катакомбах: восемь одиночек, среди них убийца и детектив
+# (sim/nightmare.go). Три минуты; дожили — победа выживших.
+- name: nightmare
+  team_count: 8
+  team_player_count: 1
+  max_players: 8
+  duration_ticks: 3600
+  respawn_ticks: -1
+
+# Заражение: десять выживших в одной команде, заражённые — команда 1
+# (sim/infection.go). 15 секунд карантина и 2:15 охоты; последний выживший
+# получает свои 30 секунд. Матчмейкинг ставит всех в команду 0.
+- name: infection
+  team_count: 2
+  team_player_count: 10
+  max_players: 10
+  duration_ticks: 3000
+  respawn_ticks: 60
+
+# Нокаут 3 на 3: до двух побед в раундах, без возрождений внутри раунда
+# (sim/knockout.go). Длительность — только предел на весь матч.
+- name: knockout
+  team_count: 2
+  team_player_count: 3
+  duration_ticks: 8000
+  respawn_ticks: -1
+
+# Футбол 3 на 3 — рядом с 2 на 2, на своём поле побольше.
+- name: ball_3
+  team_count: 2
+  team_player_count: 3
+  goals_to_win: 5
+  duration_ticks: 6000
+  respawn_ticks: 140
+
+# Захват карита 3 на 3 — клон «Захвата кристаллов» (sim/karitgrab.go): шахта
+# в центре выбрасывает кристалл карита раз в 7 секунд; 10 у команды и перевес —
+# 15 секунд удержания. 3:30 на матч, возрождение 5 секунд.
+- name: karit_grab
+  team_count: 2
+  team_player_count: 3
+  duration_ticks: 4200
   respawn_ticks: 100

@@ -15,19 +15,21 @@ import (
 )
 
 type Config struct {
-	ReplayDir        string
-	UDPBind          string
-	AdvertisedHost   string
-	AdvertisedPort   int
-	MaxPeers         int
-	MaxPerAddress    int
-	HandshakeTimeout time.Duration
-	PeerTimeout      time.Duration
-	TickMs           int
-	IntroTicks       int
-	ReadinessTimeout time.Duration
-	MaxMatches       int
-	MaxCatchUpTicks  int
+	TrustedProxyCIDRs []string
+	AllowMegaBossBots bool
+	ReplayDir         string
+	UDPBind           string
+	AdvertisedHost    string
+	AdvertisedPort    int
+	MaxPeers          int
+	MaxPerAddress     int
+	HandshakeTimeout  time.Duration
+	PeerTimeout       time.Duration
+	TickMs            int
+	IntroTicks        int
+	ReadinessTimeout  time.Duration
+	MaxMatches        int
+	MaxCatchUpTicks   int
 }
 
 type Grant struct {
@@ -180,16 +182,16 @@ func (s *Server) Allocate(req *AllocateRequest) (sessions map[int]int64, host st
 		bp = append(bp, sim.BuildPlayer{TestBalance: p.TestBalance, AugmentIDs: p.AugmentIDs, PlayerID: p.PlayerID, IsBot: p.IsBot, Index: p.Index, Team: p.Team, Name: p.Name, CharacterID: int(p.ModelID), HPLevel: int(p.HPLevel), DamageLevel: int(p.DamageLevel), SpeedLevel: int(p.SpeedLevel), DashID: int(p.DashID), StarPowerID: int(p.StarPowerID), UltUpgradeID: int(p.UltID)})
 	}
 	if mode.Name == "mega_boss" {
-		if len(humanIDs) < 3 || len(humanIDs) > 6 || len(req.Participants) != len(humanIDs)+1 {
+		if len(humanIDs) < 1 || len(humanIDs) > 6 || teamSizes[0] < 3 || teamSizes[0] > 6 || (!s.cfg.AllowMegaBossBots && (len(humanIDs) < 3 || len(req.Participants) != len(humanIDs)+1)) {
 			return nil, "", 0, "mega_boss_requires_three_to_six_humans"
 		}
 		for _, p := range req.Participants {
 			ch := s.cat.CharByID[int(p.ModelID)]
-			if p.IsBot != (p.Team == 1) || (p.Team == 1 && ch.Name != practiceBossModel) {
+			if p.Team == 1 && (!p.IsBot || ch.Name != practiceBossModel) || p.Team == 0 && (!ch.IsHero() || p.IsBot && !s.cfg.AllowMegaBossBots) {
 				return nil, "", 0, "invalid_mega_boss_roster"
 			}
 		}
-		if teamSizes[1] != 1 || teamSizes[0] != len(humanIDs) {
+		if teamSizes[1] != 1 {
 			return nil, "", 0, "invalid_mega_boss_teams"
 		}
 	}

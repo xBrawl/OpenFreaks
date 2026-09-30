@@ -34,3 +34,10 @@
   trigger_range: 3
   first_object_name: portal_start_area_effect
   second_object_name: portal_end_area_effect
+
+# Захват карита (sim/karitgrab.go): кристалл карита из шахты. Поднимает
+# любой, кто подошёл; несёт до смерти, потом кристаллы разлетаются вокруг.
+- name: karit_crystal
+  value: 1
+  trigger_range: 3
+  can_be_picked_up: true

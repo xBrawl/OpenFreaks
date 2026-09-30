@@ -18,7 +18,8 @@ func TestParseRealCatalog(t *testing.T) {
 	if len(c.Characters) < 7 {
 		t.Fatalf("chars=%d", len(c.Characters))
 	}
-	if len(c.Heroes()) != 7 {
+	// 7 прежних героев и Кролик (default_character).
+	if len(c.Heroes()) != 8 || c.Heroes()[7].Name != "default_character" {
 		t.Fatalf("heroes=%d", len(c.Heroes()))
 	}
 

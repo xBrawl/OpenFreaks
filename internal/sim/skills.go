@@ -6,6 +6,9 @@ import (
 )
 
 func TryCast(w *World, p *Player, s *Skill, a protocol.PlayerAction, ultimate bool) bool {
+	if handled, ok := modeCast(w, p, s, a, ultimate); handled {
+		return ok
+	}
 	if ultimate && p.augment("back_to_basics").Exists() {
 		return false
 	}
@@ -64,9 +67,16 @@ func castSkill(w *World, p *Player, s *Skill, a protocol.PlayerAction, ultimate,
 		}
 	}
 	d := s.Definition
-	absolute := !dash && (s.ProjIndirect || s.ChargeTypeName == "jump" || s.ChargeTypeName == "jump_destroying")
-	tx, ty := computeTarget(w, p, a, s.RangePx, absolute, d.Bool("always_cast_at_max_range"))
-	if absolute {
+	jump := s.ChargeTypeName == "jump" || s.ChargeTypeName == "jump_destroying"
+	absolute := !dash && (s.ProjIndirect || jump)
+	// Рывки-перемещения приходят смещением, но летят на его длину, а не на максимум.
+	aimed := dash && (s.Behaviour == "teleport" || s.Behaviour == "portal" || jump)
+	lead := 0.0
+	if s.AttackType == "projectile" && s.Projectile != "" && !s.Homing {
+		lead = float64(s.ProjSpeed)
+	}
+	tx, ty := aimTarget(w, p, a, s.RangePx, targetAim{absolute: absolute, forceMax: d.Bool("always_cast_at_max_range"), aimed: aimed, leadSpeed: lead})
+	if absolute || aimed {
 		tx = clampF(tx, 0, w.Tiles.PixW)
 		ty = clampF(ty, 0, w.Tiles.PixH)
 	}
@@ -108,12 +118,19 @@ func castSkill(w *World, p *Player, s *Skill, a protocol.PlayerAction, ultimate,
 	if !ultimate && !dash && !chained {
 		e.DamagePct = augmentWeaponCast(p)
 	}
+	// Числа телевизора — урон ульты Кролика: ульту заряжают слабее.
+	if isRabbitTV(p) {
+		e.Ultimate = true
+	}
 	s.CoolLeft = max(0, s.CoolMs)
 	s.CastPending = delay > 0
 	s.ActiveLeft = 0
 	p.SkillCastLeft = delay
 	p.Executions = append(p.Executions, e)
 	p.RevealedUntil = w.TickNum + 40
+	if !dash {
+		p.LastCombatTick = w.TickNum
+	}
 	p.AttackAngle = e.Angle
 	p.State = StateAttack
 	if !d.Bool("can_move_at_same_time", true) {
@@ -346,7 +363,7 @@ func FirePulse(w *World, p *Player, e *Execution) {
 	if kind == "attack" && (s.AttackType == "direct" || s.Projectile == "") {
 		half := math.Min(180, float64(a.Int("spread", 90))/2)
 		for _, v := range w.Characters() {
-			if v != p && v.Alive && v.Team != p.Team && !v.IsBall() && Dist(p.X, p.Y, v.X, v.Y) <= float64(s.RangePx+v.CollisionRadius) {
+			if v != p && v.Alive && v.Team != p.Team && !v.IsBall() && bodyDist(v, p.X, p.Y) <= float64(s.RangePx) {
 				delta := abs((angleTo(v.X-p.X, v.Y-p.Y)-e.Angle+540)%360 - 180)
 				if float64(delta) <= half {
 					applyDamage(w, p, v, damage, e.Ultimate)
@@ -429,11 +446,15 @@ func moveAirborne(w *World, p *Player, dx, dy float64) {
 func TryDash(w *World, p *Player, a protocol.PlayerAction) bool {
 	d := p.DashDefinition
 	t := d.At("type")
-	if !CanAct(w, p) || w.Finished || int(w.TickNum) < w.IntroTicks || !d.Exists() || p.DashCooldown > 0 || (!p.DashUnlimited && p.DashChargeLeft <= 0) {
+	if !CanAct(w, p) || w.Finished || int(w.TickNum) < w.IntroTicks || !d.Exists() || p.DashCooldown > 0 || (!p.DashUnlimited && p.DashChargeLeft <= 0) || !modeDashAllowed(w, p) {
 		return false
 	}
 
 	if !d.Bool("interrupts_actions") && len(p.Executions) > 0 {
+		return false
+	}
+	// «Ускорение» Кролика переключает передачу — без телевизора жать нечего.
+	if d.Bool("requires_rabbit_tv") && rabbitTV(w, p) == nil {
 		return false
 	}
 	if t.String("name") == "dash_low_hit_points" {
@@ -455,6 +476,9 @@ func TryDash(w *World, p *Player, a protocol.PlayerAction) bool {
 		s := skillNamed(p, t.String("skill_name"))
 		if !castSkill(w, p, s, a, false, true, false) {
 			return false
+		}
+		if d.Bool("requires_rabbit_tv") {
+			rabbitSwitchChannel(w, p)
 		}
 	case "teleport":
 		x, y := ComputeTarget(w, p, a, max(100, d.Int("casting_range")*300), false)

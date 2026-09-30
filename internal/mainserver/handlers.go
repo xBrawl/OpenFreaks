@@ -12,6 +12,16 @@ import (
 )
 
 func (s *Server) dispatch(c *Conn, id int16, payload []byte) bool {
+	// Эти ответы не читают и не меняют пользовательское состояние. Не копируем
+	// всю историю квитанций/матчей ради пустого keepalive каждые десять секунд.
+	switch id {
+	case protocol.CKeepAliveRequest, protocol.CClientHello, protocol.CFingerprintRequest, protocol.CModelsRequest:
+		defer s.store.LockState()()
+		if s.storageFailed.Load() {
+			return false
+		}
+		return s.dispatchLocked(c, id, payload)
+	}
 	if readOnlyMessage(id) {
 		return s.runReadOnly(func() bool { return s.dispatchLocked(c, id, payload) })
 	}
@@ -26,7 +36,8 @@ func readOnlyMessage(id int16) bool {
 		protocol.CAvailableTeamsRequest, protocol.CAllianceSearchRequest,
 		protocol.CAllianceDataRequest, protocol.CAllianceMessagesRequest,
 		protocol.CFriendsListRequest, protocol.CPlayerDataRequest,
-		protocol.CBattleLogsRequest, protocol.CBondStateRequest:
+		protocol.CBattleLogsRequest, protocol.CBondStateRequest,
+		protocol.CTeamMessagesRequest:
 		return true
 	}
 	return false
@@ -53,6 +64,18 @@ func (s *Server) dispatchLocked(c *Conn, id int16, payload []byte) bool {
 		}
 	}
 	switch id {
+	case protocol.CStaffBanRequest, protocol.CStaffUnbanRequest, protocol.CStaffSetRoleRequest:
+		if !c.staff.Load() {
+			return false
+		}
+		switch id {
+		case protocol.CStaffBanRequest:
+			return s.onStaffBan(c, payload)
+		case protocol.CStaffUnbanRequest:
+			return s.onStaffUnban(c, payload)
+		default:
+			return s.onStaffSetRole(c, payload)
+		}
 	case 64:
 		return s.onBattleEmote(c, payload)
 	case 63:
@@ -87,12 +110,23 @@ func (s *Server) dispatchLocked(c *Conn, id int16, payload []byte) bool {
 			return false
 		}
 		s.mm.Cancel(c.PlayerID)
+		s.teamUnready(c.PlayerID)
 		return c.Send(protocol.SMatchmakingCancelResponse, protocol.EncodeSingleIgnoredByte())
+	case protocol.CMatchmakingBotsNow:
+		if err := protocol.DecodeEmpty(payload); err != nil {
+			return false
+		}
+		if s.mm != nil {
+			s.mm.BotsNow(c.PlayerID)
+		}
+		return true
 	case protocol.CExitBattle:
 		if err := protocol.DecodeEmpty(payload); err != nil {
 			return false
 		}
-		s.mm.Cancel(c.PlayerID)
+		if s.mm != nil {
+			s.mm.Cancel(c.PlayerID)
+		}
 		return s.leaveBattle(c)
 	case protocol.CCharacterChange:
 		return s.onCharacterChange(c, payload)
@@ -225,6 +259,15 @@ func (s *Server) dispatchLocked(c *Conn, id int16, payload []byte) bool {
 		return s.onBondUpdate(c, payload)
 	case protocol.CDeviceLinkCodeRequest:
 		return s.onDeviceLinkCode(c, payload)
+	case protocol.CSetAvatarRequest:
+		return s.onSetAvatar(c, payload)
+	case protocol.CSendTeamMessage:
+		return s.onTeamMessage(c, payload)
+	case protocol.CTeamMessagesRequest:
+		if err := protocol.DecodeEmpty(payload); err != nil {
+			return false
+		}
+		return s.onTeamMessages(c)
 	case protocol.CAllianceReactorStateRequest:
 		if len(payload) == 1 {
 			_ = protocol.DecodeEmpty(payload)
@@ -278,6 +321,10 @@ func (s *Server) onLogin(c *Conn, payload []byte) bool {
 	if !s.acceptedBuild(req.ClientBuild) {
 		return s.failLogin(c, 2)
 	}
+	c.social.Store(req.Features&protocol.FeatureSocialV2 != 0)
+	c.profileStats.Store(req.Features&protocol.FeatureProfileStats != 0)
+	c.staff.Store(req.Features&protocol.FeatureStaff != 0)
+	c.battleLogV2.Store(req.Features&protocol.FeatureBattleLogV2 != 0)
 
 	if auth.IsLinkLogin(req.PlayerID, req.PassToken) {
 		return s.onLinkLogin(c, req.PassToken)
@@ -295,6 +342,9 @@ func (s *Server) onLogin(c *Conn, payload []byte) bool {
 		return s.failLogin(c, 2)
 	}
 
+	if s.rejectBanned(c, acc.PlayerID) {
+		return true
+	}
 	if s.cfg.Authentication.EnableTestRegistration && s.store.HasCredential(acc.PlayerID) {
 		acc.Onboarding = 2
 	}
@@ -320,12 +370,18 @@ func (s *Server) onTestLogin(c *Conn, passToken string) bool {
 	if len(t.Password) < 4 || len(t.Password) > 128 {
 		return s.failLogin(c, 2)
 	}
+	if s.loginLimit != nil && !s.loginLimit.AllowAddress(c) {
+		return s.failLogin(c, 4)
+	}
 	if t.Register {
 		if strings.TrimSpace(t.InvitationCode) != "VERITYINFREAKS" {
 			return s.failLogin(c, 7)
 		}
 		if s.store.IsNicknameTaken(nick) {
 			return s.failLogin(c, 4)
+		}
+		if s.loginLimit != nil && !s.loginLimit.AllowPasswordWork() {
+			return s.failLogin(c, 10)
 		}
 		salt, hash, it, err := auth.HashPassword(t.Password)
 		if err != nil {
@@ -349,8 +405,14 @@ func (s *Server) onTestLogin(c *Conn, passToken string) bool {
 		s.log.Warn("login rate limited", "login", nick)
 		return s.failLogin(c, 4)
 	}
+	if s.loginLimit != nil && !s.loginLimit.AllowPasswordWork() {
+		return s.failLogin(c, 10)
+	}
 	if !auth.VerifyPassword(t.Password, cred.Salt, cred.Hash, cred.Iterations) {
 		return s.failLogin(c, 4)
+	}
+	if s.rejectBanned(c, cred.PlayerID) {
+		return true
 	}
 	if a, ok := s.store.GetAccount(cred.PlayerID); ok {
 		a.Onboarding = 2
@@ -404,6 +466,9 @@ func (s *Server) onDeviceLinkCode(c *Conn, payload []byte) bool {
 }
 
 func (s *Server) onLinkLogin(c *Conn, passToken string) bool {
+	if s.loginLimit != nil && !s.loginLimit.AllowAddress(c) {
+		return s.failLogin(c, 8)
+	}
 	if s.linkCodes == nil {
 		return s.failLogin(c, 2)
 	}
@@ -418,6 +483,9 @@ func (s *Server) onLinkLogin(c *Conn, passToken string) bool {
 	acc, ok := s.store.GetAccount(playerID)
 	if !ok {
 		return s.failLogin(c, 8)
+	}
+	if s.rejectBanned(c, acc.PlayerID) {
+		return true
 	}
 	if s.cfg.Authentication.EnableTestRegistration && s.store.HasCredential(acc.PlayerID) {
 		acc.Onboarding = 2
@@ -504,6 +572,9 @@ func (s *Server) onStartBattle(c *Conn, payload []byte) bool {
 	}
 	if loc := s.catData.LocByID[int(location)]; loc != nil && loc.Mode == "test_arena" {
 		return s.joinPractice(c, location)
+	}
+	if t := s.store.TeamForPlayer(c.PlayerID); t != nil && len(t.Members) > 1 {
+		return s.teamReady(c, t)
 	}
 	if !s.mm.Enqueue(c.PlayerID, location) {
 		c.Send(protocol.SMatchmakingCancelResponse, protocol.EncodeSingleIgnoredByte())
@@ -611,9 +682,9 @@ func (s *Server) pushFriendUpdate(viewer, other int64) {
 		return
 	}
 	st := s.store.FriendStatus(viewer, other)
-	w := protocol.NewWriter()
-	(&protocol.FriendEntry{PlayerID: other, PlayerName: acc.Name, Trophies: acc.Trophies, Status: st, IsOnline: acc.Online}).Encode(w)
 	if conn, ok := s.ConnByPlayer(viewer); ok {
+		w := protocol.NewWriter()
+		(&protocol.FriendEntry{PlayerID: other, PlayerName: acc.Name, Trophies: acc.Trophies, Status: st, IsOnline: acc.Online, Social: s.socialFor(conn, other)}).Encode(w)
 		conn.Send(protocol.SFriendEntryUpdate, w.Bytes())
 	}
 }
@@ -627,7 +698,7 @@ func (s *Server) onFriendsList(c *Conn) bool {
 		if !ok {
 			continue
 		}
-		(&protocol.FriendEntry{PlayerID: id, PlayerName: acc.Name, Trophies: acc.Trophies, Status: s.store.FriendStatus(c.PlayerID, id), IsOnline: acc.Online}).Encode(w)
+		(&protocol.FriendEntry{PlayerID: id, PlayerName: acc.Name, Trophies: acc.Trophies, Status: s.store.FriendStatus(c.PlayerID, id), IsOnline: acc.Online, Social: s.socialFor(c, id)}).Encode(w)
 	}
 	return c.Send(protocol.SFriendsListResponse, w.Bytes())
 }
@@ -641,7 +712,7 @@ func (s *Server) onPlayerData(c *Conn, payload []byte) bool {
 	if !ok {
 		return true
 	}
-	pd := protocol.PlayerData{PlayerID: target, PlayerName: acc.Name, Trophies: acc.Trophies, FriendStatus: s.store.FriendStatus(c.PlayerID, target), HasAlliance: acc.AllianceID > 0, AllianceID: acc.AllianceID}
+	pd := protocol.PlayerData{PlayerID: target, PlayerName: acc.Name, Trophies: acc.Trophies, FriendStatus: s.store.FriendStatus(c.PlayerID, target), HasAlliance: acc.AllianceID > 0, AllianceID: acc.AllianceID, Social: s.socialFor(c, target)}
 
 	targetMeta := s.store.Meta.PlayerIfExists(target)
 	if targetMeta == nil {
@@ -666,6 +737,15 @@ func (s *Server) onPlayerData(c *Conn, payload []byte) bool {
 			}
 		}
 	}
+	if c.profileStats.Load() {
+		pd.Stats = profileStats(acc, targetMeta)
+	}
+	if c.staff.Load() {
+		pd.Ban = banInfo(acc, time.Now().UnixMilli())
+		if pd.Ban == nil {
+			pd.Ban = &protocol.BanInfo{}
+		}
+	}
 	if pd.HasAlliance {
 		if al, ok := s.store.GetAlliance(acc.AllianceID); ok {
 			pd.AllianceName = al.Name
@@ -682,9 +762,19 @@ func (s *Server) onBattleLogs(c *Conn) bool {
 	w := protocol.NewWriter()
 	w.WriteInt(int32(len(recs)))
 	for _, r := range recs {
-		bl := protocol.BattleLog{BattleID: r.BattleID, LocationModelID: r.LocationID, TrophyDelta: r.TrophyDeltas[c.PlayerID], StartTimestamp: unixSeconds(r.StartedAt), TotalTicks: r.TotalTicks}
-		for _, p := range r.Players {
+		bl := protocol.BattleLog{BattleID: r.BattleID, LocationModelID: r.LocationID, TrophyDelta: r.TrophyDeltas[c.PlayerID], StartTimestamp: unixSeconds(r.StartedAt), TotalTicks: r.TotalTicks, V2: c.battleLogV2.Load()}
+		position := map[int]int32{}
+		for i, p := range r.Players {
 			bl.Players = append(bl.Players, protocol.BattlePlayer{PlayerID: p.PlayerID, PlayerName: p.Name, CharacterModelID: p.CharacterModelID, HPLevel: p.HPLevel, DamageLevel: p.DamageLevel, SpeedLevel: p.SpeedLevel, Team: int32(p.Team), Rank: p.Rank, Trophies: p.Trophies})
+			bl.Roles = append(bl.Roles, p.ModeRole)
+			position[p.Index] = int32(i)
+		}
+		for _, h := range r.Highlights {
+			who, ok := position[int(h.Player)]
+			if !ok {
+				who = -1
+			}
+			bl.Highlights = append(bl.Highlights, protocol.BattleLogHighlight{Tick: h.Tick, Kind: h.Kind, Player: who, Count: h.Count})
 		}
 		if len(bl.Players) == 0 {
 			for _, pid := range r.Participants {

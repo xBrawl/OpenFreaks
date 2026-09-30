@@ -40,6 +40,18 @@ func publicFamilyOrder(family string) int {
 		return 4
 	case "test_arena":
 		return 5
+	// Режимы 26.09. Числа совпадают с клиентом (LocationSelectionController.FamilyOrder):
+	// от них зависит, какая карта сегодня.
+	case "knockout":
+		return 6
+	case "ball_3":
+		return 7
+	case "infection":
+		return 8
+	case "nightmare":
+		return 9
+	case "karit_grab":
+		return 10
 	default:
 		return 100
 	}
@@ -63,7 +75,9 @@ func dailyPublicLocation(cat *content.CatalogData, requested int32, now time.Tim
 		return nil
 	}
 	req := cat.LocByID[int(requested)]
-	if req == nil || req.Hidden {
+	// Скрытую карту (снятую с ротации) не отменяем, а переводим на карту дня
+	// того же режима: у клиента она могла остаться выбранной.
+	if req == nil {
 		return nil
 	}
 	family := publicModeFamily(req.Mode)

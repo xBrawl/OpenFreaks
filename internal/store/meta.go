@@ -37,6 +37,8 @@ type BattleParticipant struct {
 	CharacterModelID, HPLevel, DamageLevel, SpeedLevel, StarPowerID, DashID, UltID int32
 	Trophies, Rank                                                                 int32
 	IsBot                                                                          bool
+	// ModeRole — роль в режиме (убийца, детектив, зомби…), sim.Role*.
+	ModeRole int32 `json:",omitempty"`
 }
 type PlayerMeta struct {
 	TestBalance                       map[int32]content.TestBalance
@@ -50,6 +52,14 @@ type PlayerMeta struct {
 	Pass                              PassProgress
 	Missions                          map[string]*MissionProgress
 	ReactorClaims                     map[int]int64
+	// Career — счётчики для профиля; копятся с 2026-09-24.
+	Career Career `json:",omitempty"`
+}
+
+// Career — итог всех боёв игрока (боты и брошенные бои не считаются).
+type Career struct {
+	Kills, Deaths, Battles int
+	PlaySeconds            int64
 }
 type Mastery struct {
 	Points, Matches, Wins, RoleScore, StyleScore int

@@ -1,6 +1,9 @@
 package sim
 
 func (w *World) CanSee(observer, target *Player) bool {
+	if w.modes.nightmare != nil {
+		return w.nightmareVisibility(observer, target) == 15
+	}
 	if observer == nil || observer == target || observer.Team == target.Team || target.RevealedUntil > w.TickNum {
 		return true
 	}

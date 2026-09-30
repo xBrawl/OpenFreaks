@@ -102,7 +102,7 @@ func (b *BattleHTTP) Handler() http.Handler {
 		response.Replay = &copy
 		_ = json.NewEncoder(w).Encode(response)
 	})
-	for _, route := range []string{"/resume", "/leave"} {
+	for _, route := range []string{"/resume", "/leave", "/emote"} {
 		mux.HandleFunc(route, func(w http.ResponseWriter, r *http.Request) {
 			if !Authorize(w, r, b.secret) {
 				return
@@ -113,6 +113,14 @@ func (b *BattleHTTP) Handler() http.Handler {
 			}
 			if err := DecodeBody(w, r, 4096, &request); err != nil || request.PlayerID <= 0 || len(request.BattleID) > 128 {
 				http.Error(w, "bad request", 400)
+				return
+			}
+			if r.URL.Path == "/emote" {
+				if !b.bs.Emote(request.BattleID, request.PlayerID) {
+					http.Error(w, "battle unavailable", 404)
+					return
+				}
+				_, _ = w.Write([]byte("{}"))
 				return
 			}
 			if r.URL.Path == "/leave" {

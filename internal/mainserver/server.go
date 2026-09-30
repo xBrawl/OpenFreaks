@@ -67,8 +67,6 @@ func NewServer(cfg config.Node, st *store.Store, cat *content.Catalog, catData *
 	for _, hero := range catData.Heroes() {
 		heroes = append(heroes, int32(hero.Id))
 	}
-	st.ConfigureHeroes(heroes)
-	st.ResetPresence()
 	s := &Server{
 		shutdown: make(chan struct{}),
 		cfg:      cfg, tokenSecret: cfg.TokenSecret(),
@@ -77,6 +75,13 @@ func NewServer(cfg config.Node, st *store.Store, cat *content.Catalog, catData *
 		conns: map[int64]*Conn{}, byPlayer: map[int64]*Conn{},
 		loginLimit: newLoginLimiter(),
 		linkCodes:  newLinkCodes(),
+	}
+	if !s.runOperation(func() bool {
+		st.ConfigureHeroes(heroes)
+		st.ResetPresence()
+		return true
+	}) {
+		log.Error("startup character catalog synchronization failed")
 	}
 	if granted, err := s.grantStarterUpgradeTokens(); err != nil {
 		log.Error("starter upgrade-token grant failed", "err", err)
@@ -88,6 +93,12 @@ func NewServer(cfg config.Node, st *store.Store, cat *content.Catalog, catData *
 	} else if accounts > 0 {
 		log.Info("existing character max-level grant applied", "accounts", accounts, "characters", characters, "level", 17)
 	}
+	if accounts, ok := s.grantExistingRabbitMaxLevels(); !ok {
+		log.Error("existing Rabbit max-level grant failed")
+	} else if accounts > 0 {
+		log.Info("existing Rabbit max-level grant applied", "accounts", accounts, "level", 17, "all_abilities", true)
+	}
+	s.grantStaffRoles()
 	s.mm = NewMatchmaking(s)
 	_ = onBattleResult
 	return s
@@ -96,6 +107,7 @@ func NewServer(cfg config.Node, st *store.Store, cat *content.Catalog, catData *
 func (s *Server) Store() *store.Store { return s.store }
 
 type Conn struct {
+	requestBudget   requestBudget
 	ArenaInfoBattle string
 	AuthedAt        time.Time
 	done            chan struct{}
@@ -111,6 +123,14 @@ type Conn struct {
 	TeamID          int64
 	BattleID        string
 	lastWrite       atomic.Int64
+	// social — клиент понимает хвост protocol.Social (аватарки, эмодзи в чате).
+	social atomic.Bool
+	// profileStats — клиент понимает хвост protocol.ProfileStats в профиле.
+	profileStats atomic.Bool
+	// staff — клиент понимает FeatureStaff: роли, блокировки, модерация.
+	staff atomic.Bool
+	// battleLogV2 — клиент понимает роли и лучшие моменты в логе боёв.
+	battleLogV2 atomic.Bool
 }
 
 func (s *Server) ListenAndServe() error {
@@ -340,16 +360,22 @@ func (c *Conn) readLoop() {
 	rd := bufio.NewReaderSize(nc, 64*1024)
 	header := make([]byte, protocol.TCPHeaderSize)
 	first := true
+	// Every current client request fits in the WebSocket transport's 64 KiB frame.
+	// The larger TCP protocol limit is for server-to-client model/content responses.
 	maxFrame := s.cfg.Network.TCPMaxFrameBytes
 	if maxFrame <= 0 {
 		maxFrame = protocol.MaxTCPFramePayload
 	}
+	maxFrame = min(maxFrame, maxClientFramePayload)
 	for {
 		if _, err := readFull(rd, header); err != nil {
 			s.log.Info("main connection closed", "reason", err.Error())
 			return
 		}
 		id := int16(binary.BigEndian.Uint16(header[0:2]))
+		if !c.requestBudget.allow(time.Now(), c.Authed.Load()) {
+			return
+		}
 		n := int(binary.BigEndian.Uint32(header[2:6]))
 		if n < 0 || n > maxFrame || n > protocol.MaxTCPFramePayload {
 			return

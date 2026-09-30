@@ -8,6 +8,61 @@ import (
 
 const defaultGoalsToWin = 3
 
+// Ворота: проём в стене у края поля (карта experimental_football). Зона гола —
+// весь проём целиком: раньше она была на клетку уже проёма, и мяч, пронесённый
+// у штанги, гол не давал. Клиент ставит раму по тем же числам (FootballGoals).
+const (
+	goalHalfWidth     = 750
+	goalLine          = 1200
+	carriedGoalMargin = 120
+)
+
+// Супер-удар мячом (ульта с мячом в руках). Раньше он отличался от паса только
+// дальностью, и то если стик дотянут до упора: тестеры тратили ульту впустую.
+// Теперь мяч всегда летит на всю дальность, почти вдвое быстрее, ломает
+// разрушаемые укрытия и расталкивает соперников на пути.
+const (
+	passSpeed      = 150
+	superKickSpeed = 270
+	superKickRange = 3600
+	superKickReach = 220
+	superKickPush  = 600
+)
+
+// BallHorizontal: ворота слева и справа — поле шире, чем выше. Так футбол
+// устроен как остальные командные режимы: команда 0 слева, 1 справа, а клиент
+// переворачивает поле второй команде, и каждый атакует слева направо. Прежнее
+// вертикальное поле ставило обе команды у верхних ворот: атаковать приходилось
+// сверху вниз, и тестеры жаловались на однобокие матчи.
+func (w *World) BallHorizontal() bool { return w.Tiles.PixW > w.Tiles.PixH }
+
+// ballAxes раскладывает точку на ось «ворота — ворота» и поперечную.
+func (w *World) ballAxes(x, y float64) (along, across, length, width float64) {
+	if w.BallHorizontal() {
+		return x, y, w.Tiles.PixW, w.Tiles.PixH
+	}
+	return y, x, w.Tiles.PixH, w.Tiles.PixW
+}
+
+// scoringTeam — чья команда забила, если мяч у этого конца поля (-1 — ничья).
+func (w *World) scoringTeam(along, length, line float64) int {
+	low, high := along <= line, along >= length-line
+	if !low && !high {
+		return -1
+	}
+	if w.BallHorizontal() {
+		// Команда 0 начинает слева и бьёт в правые ворота.
+		if high {
+			return 0
+		}
+		return 1
+	}
+	if high {
+		return 1
+	}
+	return 0
+}
+
 func BallTick(w *World) {
 	ball := w.Ball
 	if ball == nil {
@@ -26,6 +81,7 @@ func BallTick(w *World) {
 		if p.Alive && !p.Abandoned && !p.IsBall() && p.CarryableObjectID == ball.ObjectIndex {
 			ball.X, ball.Y = p.X, p.Y
 			carried = true
+			w.hl().ballTouch = p.Index
 			if tackler := findTackler(w, p); tackler != nil {
 				tackle(w, p, tackler)
 				carried = false
@@ -34,13 +90,20 @@ func BallTick(w *World) {
 		}
 	}
 	if !carried && ball.HasMoveTarget {
+		super := ball.LastThrowType == 1
 		dx, dy := ball.TargetX-ball.X, ball.TargetY-ball.Y
 		distance := math.Hypot(dx, dy)
 		if distance > 1 {
-			step := math.Min(150, distance)
+			speed := float64(passSpeed)
+			if super {
+				speed = superKickSpeed
+			}
+			step := math.Min(speed, distance)
 			mx, my := dx/distance*step, dy/distance*step
 			nx, ny := ball.X+mx, ball.Y+my
-			if w.Tiles.CanOccupy(nx, ny, 100) {
+			if super && !w.Tiles.CanOccupy(nx, ny, 100) && breakTiles(w, nx, ny, 100) && w.Tiles.CanOccupy(nx, ny, 100) {
+				ball.X, ball.Y = nx, ny
+			} else if w.Tiles.CanOccupy(nx, ny, 100) {
 				ball.X, ball.Y = nx, ny
 			} else {
 
@@ -57,19 +120,28 @@ func BallTick(w *World) {
 				ball.TargetX, ball.TargetY = ball.X+dx*.8, ball.Y+dy*.8
 			}
 		}
+		if super {
+			superKickPushEnemies(w, ball, dx, dy)
+		}
 		if distance < 160 {
 			ball.HasMoveTarget = false
 		}
 	}
-	if math.Abs(ball.X-w.Tiles.PixW/2) < 600 && (ball.Y <= 1200 || ball.Y >= w.Tiles.PixH-1200) {
-		team := 0
-		if ball.Y >= w.Tiles.PixH-1200 {
-			team = 1
-		}
+	// Внёс мяч в ворота — гол, как и после удара. Пока мяч в руках, его
+	// центр — это центр героя, а тело героя заходит в створ раньше: даём
+	// запас, иначе игрок стоит «в воротах», а гола нет.
+	line := float64(goalLine)
+	if carried {
+		line += carriedGoalMargin
+	}
+	along, across, length, width := w.ballAxes(ball.X, ball.Y)
+	if team := w.scoringTeam(along, length, line); team >= 0 && math.Abs(across-width/2) < goalHalfWidth {
 		w.AddPoint(team, 1)
 		w.BallWinnerTeam = team
 		w.RoundResetTicks = 40
-		if w.GetPoint(team) >= w.GoalsForWin() || w.BallOvertime {
+		winning := w.GetPoint(team) >= w.GoalsForWin() || w.BallOvertime
+		w.noteGoal(team, winning)
+		if winning {
 			w.WinnerTeam = team
 			w.Finished = true
 			w.WinReason = "goals"
@@ -123,11 +195,14 @@ func ThrowBall(w *World, p *Player, a protocol.PlayerAction, ultimate bool) bool
 	}
 	rng := 2000
 	throwType := 0
+	tx, ty := 0.0, 0.0
 	if ultimate {
-		rng = 3000
 		throwType = 1
+		w.superKickHit = map[int]bool{}
+		tx, ty = computeTarget(w, p, a, superKickRange, false, true)
+	} else {
+		tx, ty = ComputeTarget(w, p, a, rng, false)
 	}
-	tx, ty := ComputeTarget(w, p, a, rng, false)
 	// Удар от края поля целит за карту: отрицательная точка роняла снапшот
 	// (координаты пишутся беззнаковыми) и обрывала весь матч.
 	tx, ty = max(0, tx), max(0, ty)
@@ -175,6 +250,43 @@ func tackle(w *World, carrier, tackler *Player) {
 	ball.ThrowCooldown = tackleCooldown
 	ball.LastThrowTeam = tackler.Team
 	ball.LastThrowType = 0
+}
+
+// breakTiles ломает разрушаемые клетки под мячом; true — хоть одна сломалась.
+func breakTiles(w *World, px, py float64, radius int) bool {
+	broke := false
+	r := float64(radius)
+	for y := int((py - r) / PixelsPerTile); y <= int((py+r)/PixelsPerTile); y++ {
+		for x := int((px - r) / PixelsPerTile); x <= int((px+r)/PixelsPerTile); x++ {
+			if w.Tiles.DestroyTile(x, y) {
+				broke = true
+			}
+		}
+	}
+	return broke
+}
+
+// superKickPushEnemies отталкивает соперников, которых задел супер-удар, по
+// направлению полёта мяча. Каждого — один раз за удар.
+func superKickPushEnemies(w *World, ball *Player, dx, dy float64) {
+	d := math.Hypot(dx, dy)
+	if d < 1 {
+		return
+	}
+	dx, dy = dx/d, dy/d
+	for _, e := range w.Players {
+		if e == ball || !e.Alive || e.Abandoned || e.IsBall() || e.Team == ball.LastThrowTeam || w.superKickHit[e.ObjectIndex] {
+			continue
+		}
+		if Dist(e.X, e.Y, ball.X, ball.Y) > float64(superKickReach+e.CollisionRadius) {
+			continue
+		}
+		if w.superKickHit == nil {
+			w.superKickHit = map[int]bool{}
+		}
+		w.superKickHit[e.ObjectIndex] = true
+		movePlayer(w, e, dx*superKickPush, dy*superKickPush)
+	}
 }
 
 func DropBall(w *World, p *Player) {

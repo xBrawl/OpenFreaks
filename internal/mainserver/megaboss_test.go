@@ -86,3 +86,40 @@ func TestMegaBossRewardExactlyOnceAndNoTrophyChange(t *testing.T) {
 		}
 	}
 }
+
+func TestMegaBossSoloBotFillUsesTwoAlliesAndOneBoss(t *testing.T) {
+	for _, immediate := range []bool{true, false} {
+		s, _, account := metaServer(t)
+		s.cfg.Testing.EnableBots = true
+		backend := &captureAllocator{}
+		s.battle = backend
+		m := testMatchmaker(s)
+		loc := s.catData.LocByName["mega_boss_karity"]
+		entry := &queueEntry{playerID: account.PlayerID, location: int32(loc.Id), queuedAt: time.Now()}
+		m.queue[account.PlayerID] = entry
+		if immediate {
+			m.BotsNow(account.PlayerID)
+		} else {
+			m.tryAllocate(account.PlayerID)
+			if backend.request != nil {
+				t.Fatal("automatic fill skipped the one-minute search")
+			}
+			entry.queuedAt = time.Now().Add(-61 * time.Second)
+			m.tryAllocate(account.PlayerID)
+		}
+		if backend.request == nil || len(backend.request.Participants) != 4 {
+			t.Fatalf("solo mega boss not allocated (immediate=%v)", immediate)
+		}
+		for i, p := range backend.request.Participants {
+			if p.Index != i || p.IsBot != (i > 0) {
+				t.Fatalf("invalid participant %d: %+v", i, p)
+			}
+			if i < 3 && (p.Team != 0 || !s.catData.CharByID[int(p.ModelID)].IsHero()) {
+				t.Fatalf("ally %d placed on the boss team", i)
+			}
+			if i == 3 && (p.Team != 1 || s.catData.CharByID[int(p.ModelID)].Name != "karity_boss_character") {
+				t.Fatal("missing boss opponent")
+			}
+		}
+	}
+}

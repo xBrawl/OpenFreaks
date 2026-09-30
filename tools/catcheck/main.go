@@ -2,13 +2,22 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/freaks/openfreaks/internal/content"
 )
 
 func main() {
-	c, err := content.Parse(`C:\freaks\xBrawl_falserver\deploy\content-real`)
-	fmt.Println("err:", err)
+	root := "deploy/content-real"
+	if len(os.Args) > 1 {
+		root = os.Args[1]
+	}
+	c, err := content.Parse(root)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	fmt.Println("fingerprint:", c.Fingerprint)
 	fmt.Println("chars:", len(c.Characters), "heroes:", len(c.Heroes()))
 	fmt.Println("skills:", len(c.Skills), "modes:", len(c.Modes), "locs:", len(c.Locations), "maps:", len(c.Maps))
 	w := c.CharByName["wolf_character"]

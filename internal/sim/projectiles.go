@@ -151,8 +151,14 @@ func TickProjectiles(w *World) {
 			if !v.Alive || v.Abandoned || v.IsBall() || v == pr.Owner || v.Team == pr.Team || pr.HitSet[v] || pr.SharedHits[v] {
 				continue
 			}
-			if t, ok := segmentHit(ox, oy, nx, ny, v.X, v.Y, float64(pr.Radius+v.CollisionRadius)); ok {
-				hits = append(hits, hit{v, t})
+			best, found := 2.0, false
+			for _, c := range hitCircles(v) {
+				if t, ok := segmentHit(ox, oy, nx, ny, c[0], c[1], float64(pr.Radius)+c[2]); ok && t < best {
+					best, found = t, true
+				}
+			}
+			if found {
+				hits = append(hits, hit{v, best})
 			}
 		}
 		sort.Slice(hits, func(i, j int) bool {
@@ -187,9 +193,10 @@ func TickProjectiles(w *World) {
 				if pr.Owner != nil {
 					source = pr.Owner.ObjectIndex
 				}
-				if d.Int("freeze_strength") != 0 {
+				if d.Int("freeze_strength") != 0 && !(d.Bool("freeze_ignores_bosses") && isBoss(v)) {
 					AddStatus(w, v, "speed", -abs(d.Int("freeze_strength")), max(1, d.Int("freeze_duration_ms")/50), source)
 				}
+				rabbitShotHit(w, pr.Owner, v)
 				push := float64(d.Int("pushback_strength"))
 				if push != 0 {
 					movePlayer(w, v, math.Cos(rad)*push, math.Sin(rad)*push)

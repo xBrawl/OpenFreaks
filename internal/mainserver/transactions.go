@@ -1,9 +1,11 @@
 package mainserver
 
 import (
+	"encoding/binary"
 	"fmt"
 	"strings"
 
+	"github.com/freaks/openfreaks/internal/protocol"
 	"github.com/freaks/openfreaks/internal/store"
 )
 
@@ -63,7 +65,10 @@ func (s *Server) runOperation(operation func() bool) bool {
 		return false
 	}
 	for _, message := range messages {
-		message.conn.enqueue(message.packet)
+		if !message.conn.enqueue(message.packet) && len(message.packet) >= protocol.TCPHeaderSize &&
+			int16(binary.BigEndian.Uint16(message.packet[:2])) == protocol.SBattleEnded {
+			s.log.Warn("battle result could not be queued for client", "player", message.conn.PlayerID)
+		}
 	}
 	return true
 }

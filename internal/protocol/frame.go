@@ -49,7 +49,7 @@ func TryReadBattleClientFrame(b []byte) (id int16, length int, ok bool) {
 		return 0, 0, false
 	}
 	length = int(binary.BigEndian.Uint32(b[2:6]))
-	if length < 0 || length > len(b)-6 {
+	if length < 0 || length != len(b)-6 {
 		return 0, 0, false
 	}
 	id = int16(binary.BigEndian.Uint16(b[0:2]))

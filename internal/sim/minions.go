@@ -35,6 +35,14 @@ func SpawnMinion(w *World, owner *Player, name string, x, y float64) *Player {
 	if ch == nil {
 		return nil
 	}
+	// Телевизор Кролика один: новый выгоняет старый (с «Передачей» тот взрывается).
+	if w.Catalog.Spec("characters", name).Bool("replaces_previous") {
+		for _, minion := range w.Minions {
+			if minion != nil && minion.Alive && minion.Owner == owner && minion.Definition.String("name") == name {
+				Kill(w, nil, minion)
+			}
+		}
+	}
 	id := w.AllocCharacterIndex()
 	if id == 0 {
 		return nil
@@ -50,11 +58,14 @@ func SpawnMinion(w *World, owner *Player, name string, x, y float64) *Player {
 	p.SpawnX, p.SpawnY = p.X, p.Y
 	w.Minions = append(w.Minions, p)
 	w.TouchMinions()
+	if isRabbitTV(p) {
+		rabbitTVSpawned(w, p)
+	}
 	return p
 }
 func TickMinions(w *World) {
 	for _, p := range w.Minions {
-		if !p.Alive || p.IsBall() || p.ControlRemoved || p.HeroType == "minion_mirage" {
+		if !p.Alive || p.IsBall() || p.ControlRemoved || p.HeroType == "minion_mirage" || isTitan(p) || p.KarityGrab != nil || rabbitGlobalTV(p) {
 			continue
 		}
 		friendly := p.HeroType == "minion_find_teammates"

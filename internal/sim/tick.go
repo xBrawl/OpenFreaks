@@ -34,9 +34,23 @@ func (w *World) Advance() {
 		w.TickNum++
 		return
 	}
+	// Нокаут между раундами: мир стоит, идёт только отсчёт.
+	if modeFrozen(w) {
+		knockoutPauseTick(w)
+		w.TickNum++
+		return
+	}
 	TickEffects(w)
+	applyModeModifiers(w)
 	TickAugments(w)
 	TickMinions(w)
+	TickRabbit(w)
+	TickKarity(w)
+	tickModes(w)
+	if w.Finished {
+		w.TickNum++
+		return
+	}
 
 	BotStep(w, int(w.TickNum))
 
@@ -44,7 +58,7 @@ func (w *World) Advance() {
 		if !p.Alive || !p.HasMoveTarget || p.Abandoned || p.IsBall() {
 			continue
 		}
-		if p.ControlRemoved || p.Charged || (len(p.Executions) > 0 && !p.Executions[0].Skill.Definition.Bool("can_move_at_same_time", true)) {
+		if p.ControlRemoved || p.Charged || karityBusy(p) || (len(p.Executions) > 0 && !p.Executions[0].Skill.Definition.Bool("can_move_at_same_time", true)) {
 			continue
 		}
 		dx, dy := p.TargetX-p.X, p.TargetY-p.Y
@@ -143,12 +157,17 @@ func (w *World) Advance() {
 				p.UltCharge = 0
 			}
 		}
+		tickRegen(w, p)
 		TickExecutions(w, p)
 	}
 	TickProjectiles(w)
 
 	for _, p := range w.Players {
 		if p.Alive || p.Abandoned || p.IsBall() {
+			continue
+		}
+		// Шар Карити после смерти не возвращается: дальше бьётся титан.
+		if isKarityMode(w) && isBoss(p) {
 			continue
 		}
 		if w.IsShowdown {
@@ -179,6 +198,7 @@ func (w *World) Advance() {
 			if w.IsBounty {
 				p.GamePoints = 2
 			}
+			onModeRespawn(w, p)
 		}
 	}
 
@@ -188,7 +208,7 @@ func (w *World) Advance() {
 	if w.Finished {
 		return
 	}
-	if !w.Endless && int(w.TickNum) >= w.TotalTicks() {
+	if !w.Endless && !KarityTimeless(w) && int(w.TickNum) >= w.TotalTicks() {
 		if w.ModeName == "mega_boss" {
 			w.Finished = true
 			w.WinnerTeam = 1
@@ -196,6 +216,12 @@ func (w *World) Advance() {
 			return
 		}
 		w.FinishByTime()
+		return
+	}
+	if titanTeamWiped(w) {
+		w.Finished = true
+		w.WinnerTeam = 1
+		w.WinReason = "team_wiped"
 		return
 	}
 	if w.IsShowdown && !w.IsArenaLobby {
@@ -252,6 +278,9 @@ func (w *World) ModeTick() {
 }
 
 func (w *World) FinishByTime() {
+	if modeFinishByTime(w) {
+		return
+	}
 	if w.Ball != nil && !w.BallOvertime && w.GetPoint(0) == w.GetPoint(1) {
 		w.BallOvertime = true
 		w.DurationTicks += 1200
@@ -277,4 +306,32 @@ func (w *World) FinishByTime() {
 	} else {
 		w.WinnerTeam = best
 	}
+}
+
+const (
+	// Как в Brawl Stars: 3 секунды без атаки и без урона, потом 13% здоровья в секунду.
+	RegenDelayTicks   = 60
+	RegenPeriodTicks  = 20
+	RegenPercentOfMax = 13
+)
+
+// tickRegen лечит героя игрока, который не стреляет и по которому не попадают.
+// Боссы, миньоны и мяч сами не лечатся.
+func tickRegen(w *World, p *Player) {
+	if p.HeroType != "hero" || p.Owner != nil || p.HP >= p.MaxHP || w.Finished {
+		return
+	}
+	// Передача 1 телевизора Кролика глушит автохил.
+	if hasStatus(w, p, "no_regen") {
+		return
+	}
+	idle := w.TickNum - p.LastCombatTick
+	if idle < RegenDelayTicks || (idle-RegenDelayTicks)%RegenPeriodTicks != 0 {
+		return
+	}
+	// Мимо Heal: автохил не должен запускать аугменты «на лечение»
+	// (death_cycle бил бы врагов из укрытия) и не идёт в статистику лечения.
+	value := min(p.MaxHP-p.HP, max(1, p.MaxHP*RegenPercentOfMax/100))
+	p.HP += value
+	p.DamageDeltas = append(p.DamageDeltas, -min(32767, value))
 }

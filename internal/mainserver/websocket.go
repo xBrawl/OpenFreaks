@@ -11,18 +11,20 @@ import (
 	"time"
 )
 
+const maxClientFramePayload = 64<<10 - protocol.TCPHeaderSize
+
 // Each WebSocket binary message carries exactly one existing TCP frame.
 // The net.Pipe boundary preserves the normal authentication, persistence and
 // account connection limits; no new login or command handler is introduced.
 func (s *Server) WebSocketHandler(parent context.Context, origins []string) http.Handler {
-	accept := &webtransport.Acceptor{Origins: origins}
+	accept := &webtransport.Acceptor{Origins: origins, TrustedProxyCIDRs: s.cfg.Network.TrustedProxyCIDRs}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ws, ctx, cleanup, ok := accept.Accept(parent, w, r, "openfreaks.main.v1")
 		if !ok {
 			return
 		}
 		defer cleanup()
-		ws.SetReadLimit(64 << 10)
+		ws.SetReadLimit(int64(maxClientFramePayload + protocol.TCPHeaderSize))
 		client, server := net.Pipe()
 		defer client.Close()
 		defer server.Close()
@@ -41,7 +43,7 @@ func (s *Server) WebSocketHandler(parent context.Context, origins []string) http
 					return
 				}
 				_, size, err := protocol.DecodeTCPHeader(frame[:6])
-				if err != nil || int(size) != len(frame)-6 || size > 64<<10 {
+				if err != nil || int(size) != len(frame)-6 || int(size) > maxClientFramePayload {
 					return
 				}
 				client.SetWriteDeadline(time.Now().Add(10 * time.Second))
@@ -75,6 +77,6 @@ func (s *Server) WebSocketHandler(parent context.Context, origins []string) http
 				}
 			}
 		}()
-		s.handleRaw(server)
+		s.handleRaw(webtransport.RemoteConn{Conn: server, Address: webtransport.ClientAddress(r, s.cfg.Network.TrustedProxyCIDRs)})
 	})
 }

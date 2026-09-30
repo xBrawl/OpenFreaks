@@ -18,6 +18,10 @@ func applyDamageCore(w *World, attacker, victim *Player, amount int, ultimate, p
 	if attacker != nil && attacker != victim && attacker.Team == victim.Team {
 		return
 	}
+	// Телевизор Кролика неуязвим: убирает его только новый телевизор.
+	if victim.Definition.Bool("invulnerable") {
+		return
+	}
 	if attacker != nil && scale {
 		amount = int(int64(amount) * int64(100+attacker.DamageAddPct) / 100)
 		if attacker.DamageScaleBP > 0 && attacker.DamageScaleBP != content.BalanceUnit {
@@ -35,6 +39,7 @@ func applyDamageCore(w *World, attacker, victim *Player, amount int, ultimate, p
 		}
 	}
 	amount = augmentDefend(w, attacker, victim, amount, procs)
+	amount = titanDamage(w, victim, amount)
 	remaining := min(32767, max(0, amount))
 	if victim.ShieldBuff {
 		remaining /= 2
@@ -59,7 +64,12 @@ func applyDamageCore(w *World, attacker, victim *Player, amount int, ultimate, p
 	victim.DamageTaken += applied
 	if applied+absorbed > 0 {
 		victim.RevealedUntil = w.TickNum + 40
+		victim.LastCombatTick = w.TickNum
 		victim.DamageDeltas = append(victim.DamageDeltas, applied+absorbed)
+	}
+	// Заражённые копят ульту и от полученного урона (ult_charge_damage_taken — полная).
+	if full := victim.Definition.Int("ult_charge_damage_taken"); full > 0 && applied > 0 {
+		victim.UltCharge = min(4000, victim.UltCharge+applied*4000/full)
 	}
 	if attacker != nil && attacker != victim && applied > 0 {
 		attacker.DamageDealt += applied
@@ -79,6 +89,7 @@ func applyDamageCore(w *World, attacker, victim *Player, amount int, ultimate, p
 		if procs {
 			onDamageEffects(w, owner, victim, applied)
 			onAugmentDamage(w, owner, victim, applied)
+			rabbitOnHit(w, attacker)
 		}
 	}
 	if victim.HP <= 0 {
@@ -112,10 +123,14 @@ func Kill(w *World, killer, victim *Player) {
 	victim.HasMoveTarget = false
 	victim.State = StateRespawn
 	victim.RespawnLeft = w.RespawnTicks
-	if w.ModeName == "mega_boss" && victim.Definition.String("name") == "karity_boss_character" {
+	if w.BossPhase == BossPhaseTitan && victim.HeroType == "hero" {
+		victim.RespawnLeft = titanRespawnTicks
+	}
+	if w.ModeName == "mega_boss" && (victim.Definition.String("name") == karityBossName && !karityBallDown(w, victim) || isTitan(victim)) {
 		w.Finished = true
 		w.WinnerTeam = 0
 		w.WinReason = "boss_killed"
+		w.addHighlight(HighlightBossDown, killer, 1, 40)
 	}
 	if victim.CarryableObjectID != 0 {
 		DropBall(w, victim)
@@ -123,7 +138,7 @@ func Kill(w *World, killer, victim *Player) {
 	if killer != nil && killer.Owner != nil {
 		killer = killer.Owner
 	}
-	if killer != nil && killer != victim && victim.Owner == nil && victim.HeroType == "hero" {
+	if killer != nil && killer != victim && victim.Owner == nil && victim.HeroType == "hero" && !modeHidesKills(w) {
 		killer.Kills++
 		points := 1
 		if w.IsBounty {
@@ -135,8 +150,13 @@ func Kill(w *World, killer, victim *Player) {
 			w.AddPoint(killer.Team, points)
 		}
 		killer.PendingKills = append(killer.PendingKills, KillEvent{VictimIndex: victim.Index, Points: points, Tick: w.TickNum})
+		w.noteKill(killer, victim)
 	}
 	if victim.Owner != nil && victim.Upgrade.String("name") == "override_minion_death_area_effect" {
-		SpawnArea(w, victim.Owner, victim.Upgrade.String("area_effect_name"), victim.X, victim.Y, 0, 0, false, false)
+		// Взрыв телевизора — часть ульты: заряжает её по ultimate-множителю.
+		SpawnArea(w, victim.Owner, victim.Upgrade.String("area_effect_name"), victim.X, victim.Y, 0, 0, false, isRabbitTV(victim))
+	}
+	if victim.Owner == nil && !victim.IsBall() {
+		onModeKill(w, killer, victim)
 	}
 }

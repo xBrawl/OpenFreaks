@@ -44,7 +44,7 @@
   type:
     name: skill
     skill_name: horned_girl_dash
-  cool_down_ticks: 10
+  cool_down_ticks: 160
   interrupts_actions: true
   stop_movement: true
 
@@ -64,9 +64,20 @@
   type:
     name: dash_low_hit_points
     target_lower_than: 50
-    speed_change_percent: 50
+    speed_change_percent: 30
     speed_change_ticks: 40
   active_ticks: 150
   casting_range: 30
   cool_down_ticks: 200
   interrupts_actions: false
+
+- name: rabbit_dash
+  rarity_name: common
+  target_character_name: default_character
+  type:
+    name: skill
+    skill_name: rabbit_channel_switch
+  cool_down_ticks: 100
+  interrupts_actions: true
+  stop_movement: false
+  requires_rabbit_tv: true

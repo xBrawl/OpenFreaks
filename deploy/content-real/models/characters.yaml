@@ -1,22 +1,33 @@
+# Классы (role_name): tank, support, artillery, control, fighter, assassin, marksman.
+# КРОЛИК — база для новых персонажей: модель своя, навыки и эффекты сменные
+# (сейчас — лазер и телевизор помех). Именно default_character, а не новое имя:
+# старые APK считают бандл каждого героя обязательным, а этот у них уже есть.
 - name: default_character
-  hero_type_name: minion_find_teammates
-  weapon_skill_name: default_character_weapon
-  ultimate_skill_name: default_character_ultimate
+  rarity_name: common
+  role_name: control
+  hero_type_name: hero
+  weapon_skill_name: rabbit_laser
+  ultimate_skill_name: rabbit_tv
   speed: 720
-  hit_points: 3800
-  ultimate_charge_multiplier: 134
-  ultimate_charge_ultimate_multiplier: 112
+  hit_points: 3400
+  ultimate_charge_multiplier: 110
+  # Урон телевизора считается уроном ульты, но заряжает её в полную силу:
+  # попадания телевизора копят Кролику следующий телевизор.
+  ultimate_charge_ultimate_multiplier: 100
   charge_ultimate_automatically: 0
   collision_radius: 120
   projectile_start_z: 450
+  # Первый телевизор готов с начала боя (sim/build.go).
+  ultimate_ready_at_start: true
 
 - name: wolf_character
   rarity_name: rare
-  role_name: attack
+  role_name: assassin
   hero_type_name: hero
   weapon_skill_name: wolf_weapon
   ultimate_skill_name: wolf_ultimate
-  speed: 700
+  # Баланс 25.09: в футболе выносил всех мгновенно — 700 → 640.
+  speed: 640
   hit_points: 3000
   ultimate_charge_multiplier: 134
   ultimate_charge_ultimate_multiplier: 112
@@ -40,11 +51,11 @@
 
 - name: jellyfish_character
   rarity_name: epic
-  role_name: defense
+  role_name: tank
   hero_type_name: hero
   weapon_skill_name: jellyfish_weapon
   ultimate_skill_name: jellyfish_ultimate
-  speed: 640
+  speed: 680
   hit_points: 6000
   ultimate_charge_multiplier: 120
   ultimate_charge_ultimate_multiplier: 112
@@ -71,11 +82,11 @@
 
 - name: angel_wind_character
   rarity_name: common
-  role_name: defense
+  role_name: marksman
   hero_type_name: hero
   weapon_skill_name: angel_wind_weapon
   ultimate_skill_name: angel_wind_ultimate
-  speed: 650
+  speed: 690
   hit_points: 3600
   ultimate_charge_multiplier: 120
   ultimate_charge_ultimate_multiplier: 112
@@ -85,7 +96,7 @@
 
 - name: clown_character
   rarity_name: common
-  role_name: defense
+  role_name: control
   hero_type_name: hero
   weapon_skill_name: clown_weapon
   ultimate_skill_name: clown_ultimate
@@ -99,7 +110,7 @@
 
 - name: botanist_character
   rarity_name: common
-  role_name: defense
+  role_name: artillery
   hero_type_name: hero
   weapon_skill_name: botanist_weapon
   ultimate_skill_name: botanist_ultimate
@@ -126,12 +137,13 @@
 
 - name: horned_girl_character
   rarity_name: common
-  role_name: defense
+  role_name: fighter
   hero_type_name: hero
   weapon_skill_name: horned_girl_weapon
   ultimate_skill_name: horned_girl_ultimate
   speed: 700
-  hit_points: 4700
+  # Баланс 25.09: 4700 → 4400.
+  hit_points: 4400
   ultimate_charge_multiplier: 120
   ultimate_charge_ultimate_multiplier: 112
   charge_ultimate_automatically: 0
@@ -198,6 +210,7 @@
 # не считает его бандл обязательным для старта боя.
 - name: karity_boss_character
   hero_type_name: minion_find_enemies
+  is_boss: true
   weapon_skill_name: karity_spit
   ultimate_skill_name: karity_jump
   speed: 380
@@ -216,3 +229,98 @@
   hit_points: 900
   hit_points_lost_percent_per_second: 4
   collision_radius: 100
+
+# Телевизор помех Кролика (ульта). Стоит на месте, неуязвим и не теряет
+# здоровье; убрать его может только новый телевизор (ульта переставляет).
+# Пока стоит — раз в global_damage_interval_ms бьёт ВСЕХ врагов на карте
+# на global_damage, где бы они ни были (sim/rabbit.go).
+- name: rabbit_tv_character
+  hero_type_name: minion_building
+  weapon_skill_name: rabbit_tv_weapon
+  ultimate_skill_name: rabbit_tv_dummy
+  speed: 0
+  hit_points: 4400
+  collision_radius: 170
+  projectile_start_z: 560
+  rabbit_tv: true
+  invulnerable: true
+  global_damage: 750
+  global_damage_interval_ms: 1500
+  replaces_previous: true
+
+# КАРИТИ, фаза 2 — титан (sim/karity.go). Лежит аркой через всю арену и не
+# ходит; взмахи, хлопки и хватальщиков ведёт сервер, навыки — пустые слоты.
+# Здоровье умножается на число людей, как у шара.
+- name: karity_titan_character
+  hero_type_name: minion_building
+  is_boss: true
+  weapon_skill_name: karity_minion_dummy
+  ultimate_skill_name: karity_minion_dummy
+  speed: 0
+  hit_points: 174000
+  collision_radius: 560
+  projectile_start_z: 900
+
+# Хватальщик титана: крупный миньон, цепляется за бойца и тащит его ко рту
+# титана. Освободить бойца — убить хватальщика.
+- name: karity_grabber_character
+  hero_type_name: minion_find_enemies
+  weapon_skill_name: karity_minion_dummy
+  ultimate_skill_name: karity_minion_dummy
+  speed: 760
+  hit_points: 2600
+  collision_radius: 170
+
+# ── НОВЫЕ РЕЖИМЫ (26.09) ─────────────────────────────────────────────────
+# mode_hero: в меню не выбирается и бандл не обязателен (для клиента это
+# миньон), но в бою сервер ведёт его как героя и так же шлёт в снимке
+# (sim/modes.go, snapshot.go: свой тип героя в кадре).
+
+# КОШМАР В КАТАКОМБАХ (sim/nightmare.go): у всех восьмерых одна модель —
+# «Исследователь», роль знает только сервер. Навыки — пустые слоты: нож
+# убийцы, выстрел детектива, фонарь, люки и щитки ведёт nightmare.go.
+- name: nightmare_explorer_character
+  hero_type_name: minion_find_enemies
+  mode_hero: true
+  weapon_skill_name: nightmare_use
+  ultimate_skill_name: nightmare_action
+  speed: 720
+  hit_points: 3000
+  ultimate_charge_multiplier: 0
+  ultimate_charge_ultimate_multiplier: 0
+  charge_ultimate_automatically: 0
+  collision_radius: 110
+  projectile_start_z: 380
+
+# ЗАРАЖЕНИЕ (sim/infection.go): обычный заражённый. Когти вместо оружия
+# героя, прыжок через стены вместо ульты. Ульта копится сама за 12 секунд
+# (4000 / 240 тиков) и от полученного урона: 3500 урона — полная.
+- name: infection_zombie_character
+  hero_type_name: minion_find_enemies
+  mode_hero: true
+  weapon_skill_name: infection_claw
+  ultimate_skill_name: infection_pounce
+  speed: 810
+  hit_points: 5500
+  ultimate_charge_multiplier: 0
+  ultimate_charge_ultimate_multiplier: 0
+  charge_ultimate_automatically: 17
+  ult_charge_damage_taken: 3500
+  collision_radius: 130
+  projectile_start_z: 420
+
+# «Пациент Зеро»: мини-босс. Вдвое короче контроль, прыжок ломает стены.
+- name: infection_alpha_character
+  hero_type_name: minion_find_enemies
+  mode_hero: true
+  weapon_skill_name: infection_claw
+  ultimate_skill_name: infection_alpha_pounce
+  speed: 810
+  hit_points: 14000
+  ultimate_charge_multiplier: 0
+  ultimate_charge_ultimate_multiplier: 0
+  charge_ultimate_automatically: 17
+  ult_charge_damage_taken: 3500
+  control_resistance_percent: 50
+  collision_radius: 160
+  projectile_start_z: 520

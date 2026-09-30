@@ -1,8 +1,10 @@
 package sim
 
 import (
-	"github.com/freaks/openfreaks/internal/protocol"
+	"math"
 	"testing"
+
+	"github.com/freaks/openfreaks/internal/protocol"
 )
 
 func footballFixture(t *testing.T) *World {
@@ -13,11 +15,43 @@ func footballFixture(t *testing.T) *World {
 	}
 	return w
 }
+// footballSpot — точка у ворот, в которые бьёт команда team: depth от края поля
+// вдоль оси «ворота — ворота» и side поперёк от середины створа.
+func footballSpot(w *World, team int, depth, side float64) (float64, float64) {
+	m := ballMouth(w, team)
+	if w.BallHorizontal() {
+		x := depth
+		if m.x > w.Tiles.PixW/2 {
+			x = w.Tiles.PixW - depth
+		}
+		return x, w.Tiles.PixH/2 + side
+	}
+	y := depth
+	if m.y > w.Tiles.PixH/2 {
+		y = w.Tiles.PixH - depth
+	}
+	return w.Tiles.PixW/2 + side, y
+}
+
+// Поле горизонтальное, как в настоящем футболе: команда 0 слева бьёт вправо.
+func TestFootballPitchIsHorizontal(t *testing.T) {
+	w := footballFixture(t)
+	if !w.BallHorizontal() {
+		t.Fatalf("поле %.0fx%.0f не горизонтальное", w.Tiles.PixW, w.Tiles.PixH)
+	}
+	blue, red := w.Players[0], w.Players[1]
+	if blue.X >= w.Tiles.PixW/2 || red.X <= w.Tiles.PixW/2 {
+		t.Fatalf("команды не по бокам: %.0f и %.0f", blue.X, red.X)
+	}
+	if ballMouth(w, 0).x <= w.Tiles.PixW/2 {
+		t.Fatal("команда 0 должна бить в правые ворота")
+	}
+}
+
 func TestFootballGoalsResetAndOvertime(t *testing.T) {
 	w := footballFixture(t)
 	p := w.Players[0]
-	p.X = w.Tiles.PixW / 2
-	p.Y = 1100
+	p.X, p.Y = footballSpot(w, 0, 1100, 0)
 	p.CarryableObjectID = w.Ball.ObjectIndex
 	BallTick(w)
 	if w.GetPoint(0) != 1 || w.RoundResetTicks != 40 {
@@ -26,7 +60,7 @@ func TestFootballGoalsResetAndOvertime(t *testing.T) {
 	for i := 0; i < 40; i++ {
 		w.Advance()
 	}
-	if p.CarryableObjectID != 0 || p.HP != p.MaxHP || w.Ball.Y != w.Tiles.PixH/2 {
+	if p.CarryableObjectID != 0 || p.HP != p.MaxHP || w.Ball.Y != w.Tiles.PixH/2 || w.Ball.X != w.Tiles.PixW/2 {
 		t.Fatal("round did not reset")
 	}
 	w.TeamPoints = []int{1, 1}
@@ -34,8 +68,7 @@ func TestFootballGoalsResetAndOvertime(t *testing.T) {
 	if w.Finished || !w.BallOvertime {
 		t.Fatal("no overtime")
 	}
-	w.Ball.X = w.Tiles.PixW / 2
-	w.Ball.Y = w.Tiles.PixH - 1100
+	w.Ball.X, w.Ball.Y = footballSpot(w, 1, 1100, 0)
 	BallTick(w)
 	if !w.Finished || w.WinnerTeam != 1 {
 		t.Fatal("overtime goal did not win")
@@ -48,8 +81,7 @@ func TestFootballNeedsConfiguredGoals(t *testing.T) {
 		t.Fatalf("goals_to_win=%d, матч кончится с первого гола", need)
 	}
 	for goal := 1; goal <= need; goal++ {
-		w.Ball.X = w.Tiles.PixW / 2
-		w.Ball.Y = 1100
+		w.Ball.X, w.Ball.Y = footballSpot(w, 0, 1100, 0)
 		w.RoundResetTicks = 0
 		BallTick(w)
 		if (goal < need) == w.Finished {
@@ -132,15 +164,18 @@ func TestFootballBotDoesNotShootFromMidfield(t *testing.T) {
 	w := footballTeamFixture(t)
 	bot := w.Players[0]
 	bot.CarryableObjectID = w.Ball.ObjectIndex
-	mouth := ballMouth(w, 0)
+	mouth := ballMouth(w, bot.Team)
+	dx, dy := w.Tiles.PixW/2-mouth.x, w.Tiles.PixH/2-mouth.y
+	d := math.Hypot(dx, dy)
+	dx, dy = dx/d, dy/d
 
-	bot.X, bot.Y = mouth.x, mouth.y+ballShotRange+400
+	bot.X, bot.Y = mouth.x+dx*(ballShotRange+400), mouth.y+dy*(ballShotRange+400)
 	shootBall(w, bot, mouth, 0)
 	if bot.CarryableObjectID != w.Ball.ObjectIndex {
 		t.Fatal("бот пробил с середины поля")
 	}
 
-	bot.X, bot.Y = mouth.x, mouth.y+ballShotRange-200
+	bot.X, bot.Y = mouth.x+dx*(ballShotRange-200), mouth.y+dy*(ballShotRange-200)
 	shootBall(w, bot, mouth, 0)
 	if bot.CarryableObjectID == w.Ball.ObjectIndex {
 		t.Fatal("бот не бьёт даже с ударной позиции")
@@ -222,5 +257,35 @@ func TestFootballPickupGoesToNearest(t *testing.T) {
 	BallTick(w)
 	if near.CarryableObjectID != w.Ball.ObjectIndex || far.CarryableObjectID != 0 {
 		t.Fatalf("near=%d far=%d", near.CarryableObjectID, far.CarryableObjectID)
+	}
+}
+
+// Супер-удар: всегда на полную дальность, быстрее паса и расталкивает соперников.
+func TestFootballSuperKickIsStrongerThanPass(t *testing.T) {
+	flight := func(ultimate bool) (float64, int) {
+		w := footballFixture(t)
+		w.TickNum = int32(w.IntroTicks) + 1
+		p, enemy := w.Players[0], w.Players[1]
+		p.X, p.Y = w.Tiles.PixW/2, w.Tiles.PixH/2
+		enemy.X, enemy.Y = p.X+400, p.Y
+		p.CarryableObjectID = w.Ball.ObjectIndex
+		p.UltCharge = 4000
+		startX := enemy.X
+		// Стик едва сдвинут вправо: пас летит недалеко, супер-удар — всё равно на всю дальность.
+		if !ThrowBall(w, p, protocol.PlayerAction{X: 300, Y: 0}, ultimate) {
+			t.Fatal("throw rejected")
+		}
+		for i := 0; i < 3; i++ {
+			BallTick(w)
+		}
+		return w.Ball.X - p.X, int(enemy.X - startX)
+	}
+	pass, passPush := flight(false)
+	super, superPush := flight(true)
+	if super <= pass*1.5 {
+		t.Fatalf("super kick %.0f is not faster than pass %.0f", super, pass)
+	}
+	if passPush != 0 || superPush <= 0 {
+		t.Fatalf("push: pass %d, super %d", passPush, superPush)
 	}
 }

@@ -63,6 +63,14 @@ const (
 	CAllianceReactorClaimRequest      int16 = 62
 
 	CDeviceLinkCodeRequest int16 = 65
+	CSetAvatarRequest      int16 = 66
+	CSendTeamMessage       int16 = 67
+	CTeamMessagesRequest   int16 = 68
+	CMatchmakingBotsNow    int16 = 69 // только при FeatureBotsNow
+	// Модерация (только при FeatureStaff): блокировка, снятие, роль.
+	CStaffBanRequest     int16 = 70
+	CStaffUnbanRequest   int16 = 71
+	CStaffSetRoleRequest int16 = 72
 )
 
 const (
@@ -125,12 +133,24 @@ const (
 	SAllianceReactorStateResponse      int16 = 59
 	SAllianceReactorOperationResponse  int16 = 60
 	SDeviceLinkCodeResponse            int16 = 61
+	SSetAvatarResponse                 int16 = 62
+	STeamMessage                       int16 = 65 // 63 и 64 заняты тестом баланса и эмодзи в бою
+	STeamMessagesResponse              int16 = 66
+	SStaffResponse                     int16 = 67
+	// SBanned — аккаунт заблокирован: причина, срок, кто. После него сервер
+	// закрывает соединение (на входе — отвечает LoginFailed).
+	SBanned int16 = 68
 )
 
 const (
 	UdpClientHello   int16 = 1
 	UdpPlayerActions int16 = 2
 	UdpBattleState   int16 = 2
+	// Голосовой чат (оба направления): кадр речи и состояние микрофона/динамика.
+	// От клиента кадр — [seq u16][звук]; сервер добавляет номер говорящего
+	// спереди. Состояние от клиента — [флаги], от сервера — таблица [n]{номер, флаги}.
+	UdpVoiceFrame int16 = 3
+	UdpVoiceState int16 = 4
 )
 
 const (

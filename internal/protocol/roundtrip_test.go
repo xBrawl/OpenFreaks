@@ -112,4 +112,10 @@ func TestBattleFrames(t *testing.T) {
 	if !ok || id != 2 || ln != 1 {
 		t.Fatalf("client frame %d %d %v", id, ln, ok)
 	}
+	if _, _, ok := TryReadBattleClientFrame(append(append([]byte(nil), cli...), 0xff)); ok {
+		t.Fatal("UDP/KCP accepted trailing bytes that WebSocket rejects")
+	}
+	if _, _, ok := TryReadBattleClientFrame(cli[:len(cli)-1]); ok {
+		t.Fatal("truncated action frame accepted")
+	}
 }

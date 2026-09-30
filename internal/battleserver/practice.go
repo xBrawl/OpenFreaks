@@ -2,8 +2,7 @@ package battleserver
 
 import (
 	"fmt"
-	"github.com/freaks/openfreaks/internal/sim"
-	"time"
+	"strings"
 )
 
 type PracticeRequest struct {
@@ -11,12 +10,13 @@ type PracticeRequest struct {
 	Player     Participant
 }
 
-const (
-	practicePlayerSlots = 10
-	practiceBossSlot    = practicePlayerSlots
-	practiceSlots       = practicePlayerSlots + 1
-	practiceBossModel   = "karity_boss_character"
-)
+// Тестовая арена — личная комната: игрок один на один с шаром Карити.
+// Раньше все входы делили одну вечную комнату на 11 команд, и новый игрок
+// подсаживался в уже идущий бой с подменой героя; ни один другой режим так не
+// стартует. Теперь комната собирается обычным Allocate, как мегабосс: тик 0,
+// сервер ждёт подключения игрока, а когда игрок уходит, комната закрывается
+// без итогов (Match.Run).
+const practiceBossModel = "karity_boss_character"
 
 func (s *Server) JoinPractice(req *PracticeRequest) (*BattleGrant, error) {
 	if req == nil {
@@ -31,129 +31,46 @@ func (s *Server) JoinPractice(req *PracticeRequest) (*BattleGrant, error) {
 	if ch == nil || !ch.IsHero() {
 		return nil, fmt.Errorf("invalid hero")
 	}
-	for _, ability := range []struct {
-		table string
-		id    int32
-	}{{"dashes", p.DashID}, {"star_powers", p.StarPowerID}, {"ultimate_upgrades", p.UltID}} {
-		if ability.id > 0 && s.cat.SpecByID(ability.table, int(ability.id)).String("target_character_name") != ch.Name {
-			return nil, fmt.Errorf("invalid ability")
-		}
+	boss := s.cat.CharByName[practiceBossModel]
+	if boss == nil {
+		return nil, fmt.Errorf("practice boss missing")
 	}
-	for shard := 0; shard < 2; shard++ {
-		id := fmt.Sprintf("practice:%d:%d", loc.Id, shard)
-		s.mu.Lock()
-		m := s.matches[id]
-		s.mu.Unlock()
-		if m == nil {
-			parts := []*Participant{}
-			for i := 0; i < practiceSlots; i++ {
-				part := &Participant{PlayerID: int64(-1000 - i), IsBot: true, Index: i, Team: i, ModelID: p.ModelID, Name: "Свободно", HPLevel: 1, DamageLevel: 1, SpeedLevel: 1, DashID: -1, UltID: -1, StarPowerID: -1}
-				if i == practiceBossSlot {
-					if boss := s.cat.CharByName[practiceBossModel]; boss != nil {
-						part.ModelID = int32(boss.Id)
-						part.Name = "КАРИТИ"
-					}
-				}
-				parts = append(parts, part)
-			}
-			if _, _, _, err := s.Allocate(&AllocateRequest{BattleID: id, LocationID: loc.Id, Participants: parts}); err != "" {
-				return nil, fmt.Errorf("%s", err)
-			}
-		}
-		s.mu.Lock()
-		m = s.matches[id]
-		if m == nil {
-			s.mu.Unlock()
+	// Прошлая комната игрока (вылет, повторный вход) закрывается: у каждого
+	// входа своя свежая.
+	s.leavePractice(p.PlayerID)
+	p.Index, p.Team = 0, 0
+	p.AugmentIDs = nil
+	parts := []*Participant{&p, {PlayerID: -1001, IsBot: true, Index: 1, Team: 1, ModelID: int32(boss.Id), Name: "КАРИТИ", HPLevel: 1, DamageLevel: 1, SpeedLevel: 1, DashID: -1, UltID: -1, StarPowerID: -1}}
+	id := fmt.Sprintf("practice:%d:%d:%x", loc.Id, p.PlayerID, NextSessionID())
+	sessions, host, port, err := s.Allocate(&AllocateRequest{BattleID: id, LocationID: loc.Id, Participants: parts})
+	if err != "" {
+		return nil, fmt.Errorf("%s", err)
+	}
+	grant := &BattleGrant{BattleID: id, SessionID: sessions[0], LocationName: loc.Name, Host: host, Port: port}
+	for _, part := range parts {
+		copy := *part
+		grant.Players = append(grant.Players, &copy)
+	}
+	return grant, nil
+}
+
+// leavePractice выводит игрока из всех его комнат тестовой арены.
+func (s *Server) leavePractice(playerID int64) {
+	s.mu.Lock()
+	var ids []string
+	for id, m := range s.matches {
+		if !strings.HasPrefix(id, "practice:") {
 			continue
 		}
-		m.worldMu.Lock()
-		m.peerMu.Lock()
-		index := -1
-
-		for i := 0; i < practicePlayerSlots; i++ {
-			old := m.parts[i]
-			if old.PlayerID == p.PlayerID && !m.departed[i] {
-				index = i
+		for _, part := range m.parts {
+			if part != nil && part.PlayerID == playerID && !part.IsBot {
+				ids = append(ids, id)
 				break
 			}
-			if index < 0 && (old.IsBot || m.departed[i]) {
-				index = i
-			}
 		}
-		if index < 0 {
-			m.peerMu.Unlock()
-			m.worldMu.Unlock()
-			s.mu.Unlock()
-			continue
-		}
-		old := m.World.Players[index]
-		sid := m.SessionIDs[index]
-		delete(s.grants, sid)
-		if peer := s.peers[sid]; peer != nil {
-			peer.Close()
-			s.byAddr[peer.Addr.IP.String()]--
-			delete(s.peers, sid)
-		}
-		delete(m.peers, index)
-		delete(m.departed, index)
-		m.generations[index]++
-		p.Index = index
-		p.Team = index
-		p.AugmentIDs = nil
-		fresh, err := sim.BuildWorld(s.cat, sim.BuildParams{LocationID: loc.Id, Players: []sim.BuildPlayer{{PlayerID: p.PlayerID, Index: index, Team: index, Name: p.Name, CharacterID: int(p.ModelID), HPLevel: int(p.HPLevel), DamageLevel: int(p.DamageLevel), SpeedLevel: int(p.SpeedLevel), DashID: int(p.DashID), UltUpgradeID: int(p.UltID), StarPowerID: int(p.StarPowerID), TestBalance: p.TestBalance}}})
-		if err != nil {
-			m.peerMu.Unlock()
-			m.worldMu.Unlock()
-			s.mu.Unlock()
-			return nil, err
-		}
-		replacement := fresh.Players[0]
-		replacement.World = m.World
-
-		objectIndex := m.World.AllocCharacterIndex()
-		if objectIndex == 0 {
-			m.peerMu.Unlock()
-			m.worldMu.Unlock()
-			s.mu.Unlock()
-			return nil, fmt.Errorf("practice_room_exhausted")
-		}
-		replacement.ObjectIndex = objectIndex
-		m.World.Players[index] = replacement
-		m.parts[index] = &p
-		projectiles := m.World.Projectiles[:0]
-		for _, v := range m.World.Projectiles {
-			if v.Owner != old {
-				projectiles = append(projectiles, v)
-			}
-		}
-		m.World.Projectiles = projectiles
-		areas := m.World.Areas[:0]
-		for _, v := range m.World.Areas {
-			if v.Owner != old {
-				areas = append(areas, v)
-			}
-		}
-		m.World.Areas = areas
-		minions := m.World.Minions[:0]
-		for _, v := range m.World.Minions {
-			if v.Owner != old {
-				minions = append(minions, v)
-			}
-		}
-		m.World.Minions = minions
-		m.World.TouchMinions()
-		sid = NextSessionID()
-		m.SessionIDs[index] = sid
-		s.grants[sid] = &Grant{SessionID: sid, Index: index, ExpiresAt: time.Now().Add(24 * time.Hour)}
-		grant := &BattleGrant{BattleID: id, SessionID: sid, LocationName: loc.Name, Host: s.cfg.AdvertisedHost, Port: s.cfg.AdvertisedPort, OwnIndex: index, OwnTeam: index}
-		for i := 0; i < practiceSlots; i++ {
-			copy := *m.parts[i]
-			grant.Players = append(grant.Players, &copy)
-		}
-		m.peerMu.Unlock()
-		m.worldMu.Unlock()
-		s.mu.Unlock()
-		return grant, nil
 	}
-	return nil, fmt.Errorf("practice capacity reached")
+	s.mu.Unlock()
+	for _, id := range ids {
+		s.Leave(id, playerID)
+	}
 }

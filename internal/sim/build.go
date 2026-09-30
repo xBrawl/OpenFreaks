@@ -82,7 +82,7 @@ func BuildWorld(cat *content.CatalogData, p BuildParams) (*World, error) {
 		TeamPoints: make([]int, max1(mode.TeamCount)),
 		IsShowdown: mode.Showdown, DPSEnabled: mode.DPS,
 		IsAscent: mode.Ascent, IsArenaLobby: mode.Arena && strings.HasSuffix(mode.Name, "lobby"),
-		HasCarryable: mode.Name == "ball",
+		HasCarryable: mode.Name == "ball" || mode.Name == "ball_3",
 		IsBounty:     strings.HasPrefix(mode.Name, "bounty"),
 		IsKOTH:       strings.HasPrefix(mode.Name, "king_of_the_hill"),
 		IntroTicks:   p.IntroTicks, DurationTicks: max1(mode.DurationTicks),
@@ -95,6 +95,11 @@ func BuildWorld(cat *content.CatalogData, p BuildParams) (*World, error) {
 	}
 	buildTiles(w, cat, gm)
 	spawns := computeSpawns(p.Players, mode, w)
+	// Нокаут: команды идут снизу вверх по длинной карте — точки '1' (низ,
+	// команда 0) и '2' (верх, команда 1) берём прямо из карты.
+	if mode.Name == ModeKnockout || mode.Name == ModeKaritGrab {
+		mapSpawns(spawns, p.Players, gm)
+	}
 	megaBossHumans := 0
 	if mode.Name == "mega_boss" {
 		for _, bp := range p.Players {
@@ -105,11 +110,20 @@ func BuildWorld(cat *content.CatalogData, p BuildParams) (*World, error) {
 	}
 	if w.HasCarryable {
 		for _, bp := range p.Players {
+			offset := float64(bp.Index%3-1) * 600
+			if w.BallHorizontal() {
+				x := 2100.0
+				if bp.Team == 1 {
+					x = w.Tiles.PixW - 2100
+				}
+				spawns[bp.Index] = [2]float64{x, w.Tiles.PixH/2 + offset}
+				continue
+			}
 			y := w.Tiles.PixH - 2100
 			if bp.Team == 1 {
 				y = 2100
 			}
-			spawns[bp.Index] = [2]float64{w.Tiles.PixW/2 + float64(bp.Index%3-1)*600, y}
+			spawns[bp.Index] = [2]float64{w.Tiles.PixW/2 + offset, y}
 		}
 	}
 	for _, bp := range p.Players {
@@ -117,11 +131,20 @@ func BuildWorld(cat *content.CatalogData, p BuildParams) (*World, error) {
 		if ch == nil {
 			return nil, fmt.Errorf("unknown_character:%d", bp.CharacterID)
 		}
+		rosterModel := int32(ch.Id)
+		if mode.Name == ModeNightmare {
+			if explorer := explorerFor(cat, &bp); explorer != nil {
+				ch = explorer
+			}
+		}
 		pl := buildPlayer(cat, w, bp, ch)
+		pl.RosterTeam = bp.Team
+		pl.RosterModelID = rosterModel
 		if ch.Name == "karity_boss_character" {
 			switch mode.Name {
 			case "mega_boss":
 				pl.MaxHP = ch.HitPoints * max(3, megaBossHumans) / 3
+				w.MegaBossHumans = megaBossHumans
 			case "test_arena":
 				pl.MaxHP = 36000
 			}
@@ -148,6 +171,7 @@ func BuildWorld(cat *content.CatalogData, p BuildParams) (*World, error) {
 	if w.HasCarryable && len(w.Players) > 0 {
 		w.SpawnBall()
 	}
+	setupModes(w, p, gm)
 	return w, nil
 }
 
@@ -215,6 +239,15 @@ func buildTiles(w *World, cat *content.CatalogData, gm *content.GameMap) {
 	w.IsBigMap = gm.W > 21
 }
 
+// testSpeedAdd переводит тестовый множитель скорости (базисные пункты) в
+// надбавку SpeedAdd: (100 + add) × bp / 10000 − 100, в пределах снапшота.
+func testSpeedAdd(add, bp int) int {
+	if bp == content.BalanceUnit || bp <= 0 {
+		return add
+	}
+	return max(-90, min(1000, content.ScaleBP(100+add, bp)-100))
+}
+
 func buildPlayer(cat *content.CatalogData, w *World, bp BuildPlayer, ch *content.Character) *Player {
 	hpInc, hpMax := statOf(cat, "hit_points")
 	dmgInc, dmgMax := statOf(cat, "damage")
@@ -241,13 +274,25 @@ func buildPlayer(cat *content.CatalogData, w *World, bp BuildPlayer, ch *content
 	pl.Skills = buildSkills(cat, ch, bp)
 	pl.World = w
 	pl.Definition = cat.SpecByID("characters", ch.Id)
+	if modeHero(ch, pl.Definition) {
+		pl.HeroType = "hero"
+		pl.WireHero = true
+	}
+	// Кролик выходит в бой с готовым телевизором (characters.yaml).
+	if pl.Definition.Bool("ultimate_ready_at_start") {
+		pl.UltCharge = 4000
+	}
 	pl.DashDefinition = cat.SpecByID("dashes", bp.DashID)
 	pl.Upgrade = cat.SpecByID("ultimate_upgrades", bp.UltUpgradeID).At("type")
 	pl.StarPower = cat.SpecByID("star_powers", bp.StarPowerID).At("type")
 	balance := bp.TestBalance.Scaled()
 	pl.MaxHP = max(1, content.ScaleBP(pl.MaxHP, balance.HP))
 	pl.HP = pl.MaxHP
-	pl.BaseSpeed = max(1, content.ScaleBP(pl.BaseSpeed, balance.Speed))
+	// Тестовая скорость — через SpeedAdd, а не BaseSpeed: SpeedAdd уходит в
+	// снапшот, и клиент предсказывает свой бег как model.speed × (1 + SpeedAdd%).
+	// Правку BaseSpeed клиент не видит: при ×2 он бежал вдвое медленнее
+	// сервера, и позицию всё время дёргало вперёд («рывки», «невидимая стена»).
+	pl.SpeedAdd = testSpeedAdd(pl.SpeedAdd, balance.Speed)
 
 	pl.DamageScaleBP = balance.Damage
 	pl.BaseDamageAddPct = pl.DamageAddPct
@@ -268,44 +313,54 @@ func buildPlayer(cat *content.CatalogData, w *World, bp BuildPlayer, ch *content
 }
 
 func buildSkills(cat *content.CatalogData, ch *content.Character, bp BuildPlayer) []*Skill {
-	queue := []string{}
+	type skillSlot struct {
+		name   string
+		parent *skillSlot
+	}
+	queue := []*skillSlot{}
 	if _, ok := cat.SkillByName[ch.WeaponSkill]; ok {
-		queue = append(queue, ch.WeaponSkill)
+		queue = append(queue, &skillSlot{name: ch.WeaponSkill})
 	}
 	if _, ok := cat.SkillByName[ch.UltSkill]; ok {
-		queue = append(queue, ch.UltSkill)
+		queue = append(queue, &skillSlot{name: ch.UltSkill})
 	}
 	isHero := ch.HeroType == "hero" || ch.HeroType == "minion_mirage"
 	if isHero && bp.DashID > 0 {
 		if d, ok := cat.Dashes[bp.DashID]; ok && d.TypeName == "skill" && d.SkillName != "" {
 			if _, ok := cat.SkillByName[d.SkillName]; ok {
-				queue = append(queue, d.SkillName)
+				queue = append(queue, &skillSlot{name: d.SkillName})
 			}
 		}
 	}
 	var out []*Skill
-	seen := map[string]bool{}
 	for len(queue) > 0 {
-		name := queue[0]
+		slot := queue[0]
 		queue = queue[1:]
-		if seen[name] {
+		cycle := false
+		for ancestor := slot.parent; ancestor != nil; ancestor = ancestor.parent {
+			if ancestor.name == slot.name {
+				cycle = true
+				break
+			}
+		}
+		if cycle {
 			continue
 		}
-		seen[name] = true
-		def, ok := cat.SkillByName[name]
+		def, ok := cat.SkillByName[slot.name]
 		if !ok {
 			continue
 		}
+		// Unity CollectSkills serializes each slot, even when weapon and ultimate share a model.
 		out = append(out, toRuntimeSkill(cat, def))
 		if def.Charge != nil && def.Charge.AfterSkill != "" {
 			if _, ok := cat.SkillByName[def.Charge.AfterSkill]; ok {
-				queue = append(queue, def.Charge.AfterSkill)
+				queue = append(queue, &skillSlot{name: def.Charge.AfterSkill, parent: slot})
 			}
 		}
 	}
 	if ch.HeroType == "hero" && bp.UltUpgradeID > 0 {
 		if u, ok := cat.UltUpgrades[bp.UltUpgradeID]; ok && u.TypeName == "chained_skill" && u.SkillName != "" {
-			if def, ok := cat.SkillByName[u.SkillName]; ok && !seen[u.SkillName] {
+			if def, ok := cat.SkillByName[u.SkillName]; ok {
 				out = append(out, toRuntimeSkill(cat, def))
 			}
 		}
@@ -417,6 +472,40 @@ func computeSpawns(players []BuildPlayer, mode *content.GameMode, w *World) map[
 		}
 	}
 	return out
+}
+
+// mapSpawns ставит игроков команды на её клетки спавна из карты ('1' — команда 0,
+// '2' — команда 1), по порядку слева направо; лишним — ближайшая клетка по кругу.
+// Строки YAML идут сверху вниз, логика — снизу вверх (как в buildTiles).
+func mapSpawns(out map[int][2]float64, players []BuildPlayer, gm *content.GameMap) {
+	cells := [2][][2]float64{}
+	for y, row := range gm.Rows {
+		for x := 0; x < gm.W && x < len(row); x++ {
+			t := -1
+			switch row[x] {
+			case '1':
+				t = 0
+			case '2':
+				t = 1
+			}
+			if t < 0 {
+				continue
+			}
+			ly := gm.H - 1 - y
+			cells[t] = append(cells[t], [2]float64{
+				(float64(x) + .5) * PixelsPerTile, (float64(ly) + .5) * PixelsPerTile,
+			})
+		}
+	}
+	slot := [2]int{}
+	for _, p := range players {
+		t := p.Team
+		if t < 0 || t > 1 || len(cells[t]) == 0 {
+			continue
+		}
+		out[p.Index] = cells[t][slot[t]%len(cells[t])]
+		slot[t]++
+	}
 }
 
 func clampF(v, lo, hi float64) float64 {

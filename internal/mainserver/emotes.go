@@ -8,6 +8,14 @@ import (
 
 const battleEmoteCooldown = 3 * time.Second
 
+// В бою с Карити эмоуты — оружие против щита титана: кулдаун короче.
+const megaBossEmoteCooldown = time.Second
+
+// battleEmotes — бою тоже нужны эмоуты (щит эмодзи титана Карити).
+type battleEmotes interface {
+	Emote(battleID string, playerID int64) bool
+}
+
 func (s *Server) onBattleEmote(c *Conn, payload []byte) bool {
 	emoji, err := protocol.DecodeIntOnly(payload)
 	if err != nil {
@@ -31,7 +39,11 @@ func (s *Server) onBattleEmote(c *Conn, payload []byte) bool {
 		return true
 	}
 	now := time.Now()
-	if now.Sub(s.emoteLast[c.PlayerID]) < battleEmoteCooldown {
+	cooldown := battleEmoteCooldown
+	if mode := s.catData.ModeByID[int(allocation.ModeID)]; mode != nil && mode.Name == "mega_boss" {
+		cooldown = megaBossEmoteCooldown
+	}
+	if now.Sub(s.emoteLast[c.PlayerID]) < cooldown {
 		return true
 	}
 	if s.emoteLast == nil {
@@ -53,6 +65,10 @@ func (s *Server) onBattleEmote(c *Conn, payload []byte) bool {
 		if peer, ok := s.ConnByPlayer(p.PlayerID); ok && peer.BattleID == c.BattleID {
 			peer.Send(64, w.Bytes())
 		}
+	}
+	if backend, ok := s.battle.(battleEmotes); ok {
+		battleID, playerID := c.BattleID, c.PlayerID
+		go backend.Emote(battleID, playerID)
 	}
 	return true
 }

@@ -40,10 +40,14 @@ func EncodeSnapshotInto(w *World, recipientIdx int, participant int, bw *protoco
 func encodeSnapshotWith(w *World, recipientIdx int, participant int, bw *protocol.BitWriter) []byte {
 	ownIdx := recipientIdx
 	isAlive := false
+	var observer *Player
 	for _, p := range w.Players {
 		if p.Index == recipientIdx {
 			isAlive = p.Alive
 			ownIdx = p.ObjectIndex
+			if participant == protocol.ParticipantPlayer {
+				observer = p
+			}
 			break
 		}
 	}
@@ -59,7 +63,7 @@ func encodeSnapshotWith(w *World, recipientIdx int, participant int, bw *protoco
 	if w.HasCarryable {
 		bw.WriteBool(w.RoundResetTicks > 0)
 		bw.WriteIntMax1(w.BallWinnerTeam)
-		if w.LocationName == "experimental_football" {
+		if isFootballLocation(w.LocationName) {
 			bw.WritePositiveIntMax1023(w.GetPoint(0))
 			bw.WritePositiveIntMax1023(w.GetPoint(1))
 			bw.WriteBool(w.BallOvertime)
@@ -87,6 +91,23 @@ func encodeSnapshotWith(w *World, recipientIdx int, participant int, bw *protoco
 			}
 			bw.WritePositiveIntMax1023(v)
 		}
+	}
+	if w.ModeName == "mega_boss" {
+		// Мегабосс Карити: фаза (0 шар, 1 переход, 2 титан) и щит эмодзи (karity.go).
+		bw.WritePositiveIntMax3(w.BossPhase)
+		bw.WritePositiveIntMax1023(w.EmojiShieldLeft)
+		bw.WritePositiveIntMax1023(w.EmojiShieldTotal)
+	}
+	// Режимы 26.09: личный блок режима (у каждого получателя свой).
+	switch {
+	case w.modes.nightmare != nil:
+		encodeNightmareBlock(bw, w, observer)
+	case w.modes.infection != nil:
+		encodeInfectionBlock(bw, w, observer)
+	case w.modes.knockout != nil:
+		encodeKnockoutBlock(bw, w, observer)
+	case w.modes.karitGrab != nil:
+		encodeKaritGrabBlock(bw, w)
 	}
 	if w.DPSEnabled {
 		dps := 0
@@ -135,7 +156,14 @@ func encodeSnapshotWith(w *World, recipientIdx int, participant int, bw *protoco
 		}
 	}
 	w.snapProjs = projs
-	bw.WritePositiveVIntMax65535(len(chars) + len(projs) + len(w.Areas) + len(w.Items))
+	areas := w.snapAreas[:0]
+	for _, a := range w.Areas {
+		if w.modes.nightmare == nil || w.nightmareAreaVisible(observer, a) {
+			areas = append(areas, a)
+		}
+	}
+	w.snapAreas = areas
+	bw.WritePositiveVIntMax65535(len(chars) + len(projs) + len(areas) + len(w.Items))
 	for _, c := range chars {
 		bw.WritePositiveIntMax31(TypeCharacter)
 		bw.WritePositiveVIntMax65535(c.ObjectIndex)
@@ -144,7 +172,7 @@ func encodeSnapshotWith(w *World, recipientIdx int, participant int, bw *protoco
 		bw.WritePositiveIntMax31(TypeProjectile)
 		bw.WritePositiveVIntMax65535(pr.LocalIndex)
 	}
-	for _, a := range w.Areas {
+	for _, a := range areas {
 		bw.WritePositiveIntMax31(TypeAreaEffect)
 		bw.WritePositiveVIntMax65535(a.LocalIndex)
 	}
@@ -157,29 +185,31 @@ func encodeSnapshotWith(w *World, recipientIdx int, participant int, bw *protoco
 	if participant == protocol.ParticipantPlayer {
 		ownCharID = (TypeCharacter+1)*1000000 + ownIdx
 	}
-	var observer *Player
-	if participant == protocol.ParticipantPlayer {
-		for _, candidate := range w.Players {
-			if candidate.Index == recipientIdx {
-				observer = candidate
-				break
-			}
-		}
-	}
 	for _, c := range chars {
 		bw.WritePositiveIntMax511(int(c.ModelID))
 		bw.WritePositiveVIntMax131072(MakeMagicIndex(w.MaxPlayers, c.Team, c.Index))
 		visibility := c.Visibility
 		var hidden *hiddenView
 		if observer != nil {
-			if w.CanSee(observer, c) {
+			if w.modes.nightmare != nil {
+				// Кошмар: 15 — видно целиком, 1 — только луч фонаря, 2 — «пульс»
+				// бегущего для убийцы. Для луча и пульса нужна настоящая точка.
+				visibility = w.nightmareVisibility(observer, c)
+				if visibility == 15 {
+					w.rememberSeen(recipientIdx, c)
+				} else if visibility == 0 {
+					hidden = w.hiddenViewFor(recipientIdx, c)
+				}
+			} else if w.CanSee(observer, c) {
 				w.rememberSeen(recipientIdx, c)
 			} else {
 				visibility = 0
 				hidden = w.hiddenViewFor(recipientIdx, c)
 			}
 		}
-		encodeCharacter(bw, w, c, ownCharID, visibility, hidden)
+		// В Кошмаре чужие навыки и заряд — это роль: их не шлём никому.
+		secret := w.modes.nightmare != nil && c != observer && !w.Finished
+		encodeCharacterMode(bw, w, c, ownCharID, visibility, hidden, secret)
 	}
 	for _, pr := range projs {
 		bw.WritePositiveIntMax511(int(pr.ModelID))
@@ -194,7 +224,7 @@ func encodeSnapshotWith(w *World, recipientIdx int, participant int, bw *protoco
 		bw.WritePositiveVIntMax131072(MakeMagicIndex(w.MaxPlayers, pr.Team, ri))
 		encodeProjectile(bw, w, pr)
 	}
-	for _, a := range w.Areas {
+	for _, a := range areas {
 		bw.WritePositiveIntMax511(a.Definition.ID)
 		bw.WritePositiveVIntMax131072(MakeMagicIndex(w.MaxPlayers, a.Team, a.RosterIndex))
 		bw.WritePositiveVIntMax65535(clampPos(a.X))
@@ -276,17 +306,36 @@ func encodeDash(bw *protocol.BitWriter, p *Player, isOwn bool) {
 }
 
 func encodeMapTiles(bw *protocol.BitWriter, w *World) {
-	bw.WritePositiveVIntMax65535OftenZero(0)
+	// Динамические плитки: опущенные решётки Кошмара (sim/nightmare.go).
+	gates := w.activeGateTiles()
+	bw.WritePositiveVIntMax65535OftenZero(len(gates))
+	for _, i := range gates {
+		bw.WritePositiveIntMax4095(min(4095, max(0, i)))
+		bw.WritePositiveIntMax7(gateDynamicCode)
+	}
 	for _, i := range w.Tiles.DestructibleOrder() {
 		bw.WriteBool(w.Tiles.Destroyed[i])
 	}
 }
 
 func encodeCharacter(bw *protocol.BitWriter, w *World, p *Player, ownCharID, visibility int, hidden *hiddenView) {
-	custom := p.HeroType == "minion_mirage"
+	encodeCharacterMode(bw, w, p, ownCharID, visibility, hidden, false)
+}
+
+func isFootballLocation(name string) bool {
+	return name == "experimental_football" || name == "experimental_football_3v3"
+}
+
+func encodeCharacterMode(bw *protocol.BitWriter, w *World, p *Player, ownCharID, visibility int, hidden *hiddenView, secret bool) {
+	custom := p.HeroType == "minion_mirage" || p.WireHero
 	bw.WriteBool(custom)
 	if custom {
-		bw.WritePositiveIntMax31(8)
+		// Персонаж режима — для клиента миньон, но в бою он герой (HeroType.Hero = 0).
+		if p.WireHero {
+			bw.WritePositiveIntMax31(0)
+		} else {
+			bw.WritePositiveIntMax31(8)
+		}
 	}
 	x, y, z := p.X, p.Y, p.Z
 	if hidden != nil {
@@ -303,16 +352,27 @@ func encodeCharacter(bw *protocol.BitWriter, w *World, p *Player, ownCharID, vis
 	bw.WritePositiveIntMax15(visibility)
 	encodeReplication(bw, p, w.HasCarryable, hidden)
 	for _, sk := range p.Skills {
+		if secret {
+			if sk.MaxCharge >= 1 {
+				bw.WritePositiveIntMax8191(min(8191, sk.MaxCharge*1000))
+			}
+			bw.WritePositiveVIntMax255OftenZero(0)
+			bw.WritePositiveVIntMax255OftenZero(0)
+			bw.WriteBool(false)
+			continue
+		}
 		if sk.MaxCharge >= 1 {
 			bw.WritePositiveIntMax8191(sk.WireCharge())
 		}
-		bw.WritePositiveVIntMax255OftenZero(sk.ActiveLeft / 50)
-		bw.WritePositiveVIntMax255OftenZero(sk.CoolLeft / 50)
+		// Поле вмещает 255 × 50 мс. Навык с перезарядкой длиннее (заглушки
+		// миньонов Карити) иначе ронял весь бой паникой на записи снимка.
+		bw.WritePositiveVIntMax255OftenZero(min(255, max(0, sk.ActiveLeft/50)))
+		bw.WritePositiveVIntMax255OftenZero(min(255, max(0, sk.CoolLeft/50)))
 		bw.WriteBool(sk.CastPending)
 	}
 
 	n := 0
-	if hidden == nil {
+	if hidden == nil && (w.modes.nightmare == nil || visibility == 15) {
 		n = min(31, len(p.DamageDeltas))
 	}
 	bw.WritePositiveIntMax31(n)
@@ -361,6 +421,10 @@ func encodeProjectile(bw *protocol.BitWriter, w *World, pr *Projectile) {
 			prog = 1023
 		}
 	}
+	// Number projectiles reuse the unused visual progress field without changing packet layout.
+	if pr.Definition.String("name") == "rabbit_tv_number_projectile" {
+		prog = min(1023, max(0, pr.Damage))
+	}
 	bw.WritePositiveIntMax1023(prog)
 	ang := pr.Angle % 360
 	if ang < 0 {
@@ -405,7 +469,7 @@ func encodeReplication(bw *protocol.BitWriter, p *Player, hasCarryable bool, hid
 	cell(bw, func() { writeHP(hp) })
 	cell(bw, func() { writeHP(p.MaxHP) })
 	if hero {
-		cell(bw, func() { bw.WritePositiveVIntMax255OftenZero(p.SkillCastLeft / 50) })
+		cell(bw, func() { bw.WritePositiveVIntMax255OftenZero(min(255, max(0, p.SkillCastLeft/50))) })
 		cell(bw, func() {
 			v := p.UltCharge
 			if v < 0 {

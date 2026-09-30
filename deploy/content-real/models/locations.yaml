@@ -142,31 +142,43 @@
   location_theme_name: default
   game_mode_name: bounty
   map_name: aim_45_45_bounty
+  # 45×45 на шестерых — втрое просторнее, чем нужно при нашей скорости бойцов.
+  is_hidden: true
 
 - name: forest_45_45_bounty
   location_theme_name: default
   game_mode_name: bounty
   map_name: forest_45_45_bounty
+  # 45×45 на шестерых — втрое просторнее, чем нужно при нашей скорости бойцов.
+  is_hidden: true
 
 - name: flower_45_45_bounty
   location_theme_name: default
   game_mode_name: bounty
   map_name: flower_45_45_bounty
+  # 45×45 на шестерых — втрое просторнее, чем нужно при нашей скорости бойцов.
+  is_hidden: true
 
 - name: river_45_45_bounty
   location_theme_name: default
   game_mode_name: bounty
   map_name: river_45_45_bounty
+  # 45×45 на шестерых — втрое просторнее, чем нужно при нашей скорости бойцов.
+  is_hidden: true
 
 - name: bridges_45_45_bounty
   location_theme_name: default
   game_mode_name: bounty
   map_name: bridges_45_45_bounty
+  # 45×45 на шестерых — втрое просторнее, чем нужно при нашей скорости бойцов.
+  is_hidden: true
 
 - name: bubble_45_45
   location_theme_name: default
   game_mode_name: bounty
   map_name: bubble_45_45_bounty
+  # 45×45 на шестерых — втрое просторнее, чем нужно при нашей скорости бойцов.
+  is_hidden: true
 
 ####### KING OF THE HILL 3v3
 
@@ -369,3 +381,60 @@
   location_theme_name: default
   game_mode_name: mega_boss
   map_name: aim_31_31
+
+# ── НОВЫЕ РЕЖИМЫ (26.09) ─────────────────────────────────────────────────
+- name: nightmare_catacombs
+  location_theme_name: catacombs
+  game_mode_name: nightmare
+  map_name: nightmare_catacombs_31
+  # 28.09: Денис убрал Кошмар из игры, его место занял Захват карита.
+  is_hidden: true
+
+- name: infection_lake
+  location_theme_name: default
+  game_mode_name: infection
+  map_name: lake_31_31_bounty
+- name: infection_river
+  location_theme_name: default
+  game_mode_name: infection
+  map_name: river_31_31_bounty
+- name: infection_bubble
+  location_theme_name: default
+  game_mode_name: infection
+  map_name: bubble_31_31_bounty_LR
+- name: infection_default
+  location_theme_name: default
+  game_mode_name: infection
+  map_name: default_31_31
+
+- name: knockout_angles
+  location_theme_name: default
+  game_mode_name: knockout
+  map_name: ko_angles_21_45
+- name: knockout_onebridge
+  location_theme_name: default
+  game_mode_name: knockout
+  map_name: ko_onebridge_21_45
+- name: knockout_river
+  location_theme_name: default
+  game_mode_name: knockout
+  map_name: ko_river_21_45
+- name: knockout_lake
+  location_theme_name: default
+  game_mode_name: knockout
+  map_name: ko_lake_21_45
+
+- name: experimental_football_3v3
+  location_theme_name: default
+  game_mode_name: ball_3
+  map_name: experimental_football_3v3
+
+# ── ЗАХВАТ КАРИТА (28.09) ────────────────────────────────────────────────
+- name: karit_grab_mine
+  location_theme_name: default
+  game_mode_name: karit_grab
+  map_name: kg_mine_21_33
+- name: karit_grab_crossroads
+  location_theme_name: default
+  game_mode_name: karit_grab
+  map_name: kg_crossroads_21_33

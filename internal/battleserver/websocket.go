@@ -22,6 +22,37 @@ type webPeer struct {
 	cancel   context.CancelFunc
 	control  chan []byte
 	snapshot chan []byte
+	voice    chan []byte
+}
+
+// sendVoice кладёт кадр голоса в очередь, а при заторе выбрасывает: в отличие
+// от служебных сообщений, потерянная речь не повод рвать соединение.
+func (w *webPeer) sendVoice(data []byte) bool {
+	if w.voice == nil || len(data) > maxReliableMessage {
+		return false
+	}
+	select {
+	case <-w.ctx.Done():
+		return false
+	default:
+	}
+	frame := append([]byte(nil), data...)
+	select {
+	case w.voice <- frame:
+		return true
+	default:
+	}
+	// Keep recent speech after a stalled writer instead of replaying the oldest backlog.
+	select {
+	case <-w.voice:
+	default:
+	}
+	select {
+	case w.voice <- frame:
+		return true
+	default:
+		return false
+	}
 }
 
 func (w *webPeer) send(data []byte, snapshot bool) bool {
@@ -69,6 +100,7 @@ func (w *webPeer) writeLoop(p *Peer) {
 				return
 			case data = <-w.control:
 			case data = <-w.snapshot:
+			case data = <-w.voice:
 			case <-ticker.C:
 				ping, cancel := context.WithTimeout(w.ctx, webBattleWriteTimeout)
 				err := w.conn.Ping(ping)
@@ -166,7 +198,7 @@ func (s *Server) detachWeb(peer *Peer) {
 // Reply: one byte 0x01. Then raw existing battle application frames, without
 // UDP envelope or KCP headers. Never put a bearer session ID in the URL.
 func (s *Server) WebSocketHandler(parent context.Context, origins []string) http.Handler {
-	accept := &webtransport.Acceptor{Origins: origins}
+	accept := &webtransport.Acceptor{Origins: origins, TrustedProxyCIDRs: s.cfg.TrustedProxyCIDRs}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ws, ctx, cleanup, ok := accept.Accept(parent, w, r, "openfreaks.battle.v1")
 		if !ok {
@@ -184,19 +216,16 @@ func (s *Server) WebSocketHandler(parent context.Context, origins []string) http
 		if session <= 0 {
 			return
 		}
-		host, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
+		address := webtransport.ClientAddress(r, s.cfg.TrustedProxyCIDRs)
+		if address == nil {
 			return
 		}
-		ip := net.ParseIP(host)
-		if ip == nil {
-			return
-		}
+		ip := address.(*net.TCPAddr).IP
 		webCtx, webCancel := context.WithCancel(ctx)
 		defer webCancel()
 		closeOnCancel := context.AfterFunc(webCtx, func() { ws.CloseNow() })
 		defer closeOnCancel()
-		transport := &webPeer{conn: ws, ctx: webCtx, cancel: webCancel, control: make(chan []byte, 64), snapshot: make(chan []byte, 1)}
+		transport := &webPeer{conn: ws, ctx: webCtx, cancel: webCancel, control: make(chan []byte, 64), snapshot: make(chan []byte, 1), voice: make(chan []byte, 8)}
 		peer, err := s.attachWeb(session, &net.UDPAddr{IP: ip}, transport)
 		if err != nil {
 			return
@@ -230,10 +259,14 @@ func (s *Server) WebSocketHandler(parent context.Context, origins []string) http
 				return
 			}
 
-			if id != protocol.UdpPlayerActions {
-				return
-			}
-			if _, err = protocol.DecodePlayerActions(data[6:]); err != nil {
+			switch id {
+			case protocol.UdpPlayerActions:
+				if _, err = protocol.DecodePlayerActions(data[6:]); err != nil {
+					return
+				}
+			case protocol.UdpVoiceFrame, protocol.UdpVoiceState:
+				// Голос проверяет сам матч: неверный кадр просто отбрасывается.
+			default:
 				return
 			}
 			peer.mu.Lock()

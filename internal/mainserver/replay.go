@@ -48,7 +48,7 @@ func (s *Server) onStartReplay(c *Conn, payload []byte) bool {
 	data := grant.Replay
 	message := &protocol.BattleStartedMsg{ParticipantType: protocol.ParticipantReplayWatcher, ReplayTickLength: data.Frames[len(data.Frames)-1].Tick, LocationName: data.LocationName, OwnIndex: 0, OwnTeam: 0, Host: grant.Host, Port: int32(grant.Port), SessionID: grant.SessionID}
 	for _, p := range data.Players {
-		message.Players = append(message.Players, protocol.BattleStartedPlayer{Name: p.Name, ModelID: p.ModelID, Index: int32(p.Index), Team: int32(p.Team), HPLevel: p.HPLevel, DamageLevel: p.DamageLevel, SpeedLevel: p.SpeedLevel, UltimateUpgradeID: p.UltID, DashID: p.DashID, AugmentIDs: p.AugmentIDs})
+		message.Players = append(message.Players, protocol.BattleStartedPlayer{PlayerID: p.PlayerID, Name: p.Name, ModelID: p.ModelID, Index: int32(p.Index), Team: int32(p.Team), HPLevel: p.HPLevel, DamageLevel: p.DamageLevel, SpeedLevel: p.SpeedLevel, UltimateUpgradeID: p.UltID, DashID: p.DashID, AugmentIDs: p.AugmentIDs})
 	}
 	if message.Host == "" {
 		message.Host = s.advHost
@@ -57,7 +57,7 @@ func (s *Server) onStartReplay(c *Conn, payload []byte) bool {
 		message.Port = int32(s.advPort)
 	}
 	c.BattleID = "replay:" + id
-	return c.Send(protocol.SBattleStarted, message.Encode())
+	return s.sendBattleStarted(c, message)
 }
 func (s *Server) onDeepLink(c *Conn, payload []byte) bool {
 	text, _, err := protocol.DecodeStringOnly(payload)

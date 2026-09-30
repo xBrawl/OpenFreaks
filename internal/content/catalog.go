@@ -255,12 +255,22 @@ type CatalogData struct {
 	Synthetic   bool
 }
 
+// Heroes — герои в порядке id, но Кролик (default_character) последним: он
+// первый в YAML (id 1), а новый аккаунт и боты берут героев с начала списка.
 func (c *CatalogData) Heroes() []*Character {
 	var out []*Character
+	var rabbit *Character
 	for _, ch := range c.Characters {
 		if ch.HeroType == "hero" {
+			if ch.Name == "default_character" {
+				rabbit = ch
+				continue
+			}
 			out = append(out, ch)
 		}
+	}
+	if rabbit != nil {
+		out = append(out, rabbit)
 	}
 	if len(out) == 0 {
 		for _, ch := range c.Characters {

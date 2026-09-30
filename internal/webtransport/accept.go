@@ -10,6 +10,7 @@ import (
 )
 
 type Acceptor struct {
+	TrustedProxyCIDRs             []string
 	Origins                       []string
 	MaxConnections, MaxPerAddress int
 	mu                            sync.Mutex
@@ -24,11 +25,12 @@ func (a *Acceptor) Acquire(w http.ResponseWriter, r *http.Request) (func(), bool
 		http.Error(w, "GET required", 405)
 		return nil, false
 	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
+	address := ClientAddress(r, a.TrustedProxyCIDRs)
+	if address == nil {
 		http.Error(w, "invalid remote address", 400)
 		return nil, false
 	}
+	host := address.(*net.TCPAddr).IP.String()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	maximum, perIP := a.MaxConnections, a.MaxPerAddress

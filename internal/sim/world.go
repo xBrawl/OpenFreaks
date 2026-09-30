@@ -204,6 +204,11 @@ type Player struct {
 
 	damageHistory []int `json:"-"`
 	RespawnLeft   int
+	// LastCombatTick is the last tick the hero attacked or was hit; auto-heal waits on it.
+	LastCombatTick int32
+
+	// Телевизор Кролика: передача в эфире (0 — нет), сколько ей осталось, прошлая.
+	TvChannel, TvChannelTicks, TvLastChannel int
 
 	CarryableObjectID int
 	CarryableAimX     int
@@ -211,6 +216,20 @@ type Player struct {
 	LastThrowType     int
 	LastThrowTeam     int
 	ThrowCooldown     int
+
+	// Мегабосс Карити (karity.go): кого тащит хватальщик; перекат шара.
+	KarityGrab     *Player `json:"-"`
+	KarityGrabTick int32
+	KarityRoll *karityRoll `json:"-"`
+	// Шар Карити держит эмодзи-залп: стоит на месте, общий ИИ его не трогает.
+	KarityCasting bool `json:"-"`
+
+	// Команда и герой из состава матча. Режимы 26.09 меняют Team и ModelID
+	// прямо в бою (заражённые, Исследователь), а итоги сверяются с составом.
+	RosterTeam    int
+	RosterModelID int32
+	// WireHero: персонаж режима — для клиента миньон, но в кадре идёт героем.
+	WireHero bool `json:"-"`
 }
 
 type TileGrid struct {
@@ -331,6 +350,8 @@ type Projectile struct {
 type World struct {
 	Endless                             bool
 	BallOvertime                        bool
+	// Кого уже оттолкнул текущий супер-удар мячом (по ObjectIndex).
+	superKickHit map[int]bool `json:"-"`
 	Catalog                             *content.CatalogData `json:"-"`
 	Minions                             []*Player
 	Areas                               []*Area
@@ -370,7 +391,22 @@ type World struct {
 	NextExecID                          int
 	NextPoisonTick                      int32
 
+	// Мегабосс Карити (karity.go).
+	BossPhase                           int
+	BossPhaseTick                       int32
+	EmojiShieldLeft, EmojiShieldTotal   int
+	MegaBossHumans                      int
+	karity                              *karityState
+
 	lastSeen map[int]map[int]seenEntry
+
+	// Режимы 26.09 (modes.go) и места игроков, если режим делит победу сам.
+	modes       modeState
+	PlayerRanks map[int]int
+	// PlayerRoles — роль игрока в режиме (Role*), для итогов и лога боёв.
+	PlayerRoles map[int]int
+	highlights  *highlightState
+	snapAreas   []*Area
 
 	snapChars []*Player
 	snapProjs []*Projectile

@@ -80,7 +80,7 @@
       "statusIntervalMilliseconds": 1000,
       "statusSecondsLeft": 30,
       "allocationTimeoutSeconds": 30,
-      "botFillSeconds": 12,
+      "botFillSeconds": 60,
       "battleResultGraceSeconds": 120
     }
   },

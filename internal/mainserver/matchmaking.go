@@ -32,6 +32,7 @@ type queueEntry struct {
 	location     int32
 	queuedAt     time.Time
 	lastStatus   time.Time
+	botsNow      bool // игрок сам попросил не ждать людей
 }
 
 func NewMatchmaking(s *Server) *Matchmaking {
@@ -45,9 +46,21 @@ func (m *Matchmaking) botsEnabled() bool { return m.s.cfg.Testing.EnableBots }
 func (m *Matchmaking) botFillDelay() time.Duration {
 	d := m.s.cfg.Matchmaking.BotFillSeconds
 	if d <= 0 {
-		d = 12
+		d = 60
 	}
 	return time.Duration(d) * time.Second
+}
+
+// secondsLeft is the countdown shown in the search screen: how long the queue
+// still waits for real people before the match starts (with bots if needed).
+func (m *Matchmaking) secondsLeft(location int32, oldest, now time.Time) int32 {
+	wait := m.botFillDelay()
+	if loc := m.s.catData.LocByID[int(location)]; loc != nil && loc.Mode == "mega_boss" {
+		wait = time.Minute
+	} else if !m.botsEnabled() {
+		return int32(m.s.cfg.Matchmaking.StatusSecondsLeft)
+	}
+	return int32(max(0, int((wait-now.Sub(oldest)+time.Second-1)/time.Second)))
 }
 
 func (m *Matchmaking) Enqueue(pid int64, location int32) bool {
@@ -100,15 +113,51 @@ func (m *Matchmaking) Enqueue(pid int64, location int32) bool {
 	}
 	for _, id := range members {
 		if c, ok := m.s.ConnByPlayer(id); ok {
-			seconds := int32(m.botFillDelay() / time.Second)
-			if loc := m.s.catData.LocByID[int(location)]; loc != nil && loc.Mode == "mega_boss" {
-				seconds = 60
-			}
+			seconds := m.secondsLeft(location, now, now)
 			c.Send(protocol.SMatchmaking, protocol.EncodeMatchmaking(seconds, int32(len(members)), location))
 		}
 	}
 	return true
 }
+
+// BotsNow: игрок (или хозяин команды) не хочет ждать людей — матч собирается
+// сразу, свободные места займут боты.
+func (m *Matchmaking) BotsNow(pid int64) {
+	if !m.botsEnabled() {
+		return
+	}
+	m.mu.Lock()
+	e := m.queue[pid]
+	if e == nil {
+		m.mu.Unlock()
+		return
+	}
+	if loc := m.s.catData.LocByID[int(e.location)]; loc == nil {
+		m.mu.Unlock()
+		return
+	}
+	if e.partyID > 0 {
+		if t, ok := m.s.store.GetTeam(e.partyID); !ok || t.OwnerID != pid {
+			m.mu.Unlock()
+			return
+		}
+	}
+	for _, other := range m.queue {
+		if other == e || e.partyID > 0 && other.partyID == e.partyID {
+			other.botsNow = true
+		}
+	}
+	m.mu.Unlock()
+	m.tryAllocate(pid)
+}
+
+// Queued сообщает, стоит ли игрок в очереди поиска.
+func (m *Matchmaking) Queued(pid int64) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.queue[pid] != nil
+}
+
 func (m *Matchmaking) Cancel(pid int64) {
 	m.mu.Lock()
 	entry := m.queue[pid]
@@ -181,7 +230,7 @@ func (m *Matchmaking) tickLocked() {
 	// Keep enough time for a split Battle outbox to retry after a Main restart.
 	// Old allocations cannot reserve a player forever when a room was lost.
 	for id, a := range m.s.store.Meta.Allocations {
-		if !practiceBattle(id) && now.Unix()-unixSeconds(a.StartedAt) > 7*24*3600 {
+		if now.Unix()-unixSeconds(a.StartedAt) > 7*24*3600 {
 			delete(m.s.store.Meta.Allocations, id)
 		}
 	}
@@ -214,16 +263,13 @@ func (m *Matchmaking) tickLocked() {
 					count++
 				}
 			}
-			seconds := int32(m.s.cfg.Matchmaking.StatusSecondsLeft)
-			if location := m.s.catData.LocByID[int(loc)]; location != nil && location.Mode == "mega_boss" {
-				oldest := e.queuedAt
-				for _, other := range m.queue {
-					if other.location == loc && other.queuedAt.Before(oldest) {
-						oldest = other.queuedAt
-					}
+			oldest := e.queuedAt
+			for _, other := range m.queue {
+				if other.location == loc && other.queuedAt.Before(oldest) {
+					oldest = other.queuedAt
 				}
-				seconds = int32(max(0, 60-int(now.Sub(oldest).Seconds())))
 			}
+			seconds := m.secondsLeft(loc, oldest, now)
 			m.mu.Unlock()
 			if conn, ok := m.s.ConnByPlayer(pid); ok {
 				conn.Send(protocol.SMatchmaking, protocol.EncodeMatchmaking(seconds, int32(count), loc))
@@ -256,8 +302,12 @@ func (m *Matchmaking) tickLocked() {
 	if timeout <= 0 {
 		timeout = 30
 	}
+	expired := map[string][]int64{}
 	for battleID, deadline := range m.pending {
 		if now.After(deadline) {
+			for _, pid := range m.rosters[battleID] {
+				expired[battleID] = append(expired[battleID], pid)
+			}
 			delete(m.pending, battleID)
 			delete(m.rosters, battleID)
 			delete(m.modes, battleID)
@@ -268,6 +318,16 @@ func (m *Matchmaking) tickLocked() {
 		}
 	}
 	m.mu.Unlock()
+	// Бой без результата не должен навсегда держать игроков «в бою»: иначе их
+	// нельзя позвать в команду, а их команда не может искать матч.
+	for battleID, pids := range expired {
+		for _, pid := range pids {
+			if c, ok := m.s.ConnByPlayer(pid); ok && c.BattleID == battleID {
+				c.BattleID = ""
+				m.s.releaseTeamMember(pid)
+			}
+		}
+	}
 	for _, pid := range allocPIDs {
 		m.tryAllocate(pid)
 	}
@@ -282,7 +342,7 @@ func (m *Matchmaking) tryAllocate(primaryPID int64) {
 		m.mu.Unlock()
 		return
 	}
-	fillWithBots := m.botsEnabled() && time.Since(primary.queuedAt) >= m.botFillDelay()
+	fillWithBots := m.botsEnabled() && (primary.botsNow || time.Since(primary.queuedAt) >= m.botFillDelay())
 	minP := m.s.cfg.Matchmaking.MinPlayers
 	if minP < 1 {
 		minP = 1
@@ -307,25 +367,30 @@ func (m *Matchmaking) tryAllocate(primaryPID int64) {
 	}
 	if mode.Name == "mega_boss" {
 		group := planQueue(entries, 1, 6, 6)
-		if time.Since(primary.queuedAt) < time.Minute {
+		if !(primary.botsNow && m.botsEnabled()) && time.Since(primary.queuedAt) < time.Minute {
 			m.mu.Unlock()
 			return
 		}
 		m.mu.Unlock()
-		if len(group) < 3 {
+		if len(group) < 3 && !m.botsEnabled() {
 			for _, e := range group {
 				m.Cancel(e.playerID)
 			}
 			return
 		}
-		m.allocate(locID, group, false)
+		m.allocate(locID, group, len(group) < 3 && m.botsEnabled())
 		return
 	}
 	if len(m.queue) < minP && !fillWithBots {
 		m.mu.Unlock()
 		return
 	}
-	group := planQueue(entries, max(1, mode.TeamCount), max(1, mode.TeamPlayerCount), mode.MaxPlayers)
+	// Заражение: все начинают выжившими в одной команде (команду 1 даёт бой).
+	teams := max(1, mode.TeamCount)
+	if mode.Name == "infection" {
+		teams = 1
+	}
+	group := planQueue(entries, teams, max(1, mode.TeamPlayerCount), mode.MaxPlayers)
 	if m.botsEnabled() && !fillWithBots && len(group) < mode.MaxPlayers {
 		m.mu.Unlock()
 		return
@@ -390,12 +455,19 @@ func (m *Matchmaking) allocate(locID int, group []*queueEntry, fillWithBots bool
 		if mode.Name == "mega_boss" {
 			balance = content.TestBalance{}
 		}
+		// Кошмар: в бою все — Исследователи без гаджетов и прокачки (sim/nightmare.go).
+		// Снаряжение в составе обнуляем, иначе клиент ждал бы в кадре рывок героя.
+		if mode.Name == "nightmare" {
+			balance = content.TestBalance{}
+			ult, dash, star = -1, -1, -1
+			hp, dmg, spd = 1, 1, 1
+		}
 		parts = append(parts, &battleserver.Participant{
 			TestBalance: balance, PlayerID: e.playerID, Index: i, Team: team, Name: name, ModelID: modelID,
 			HPLevel: hp, DamageLevel: dmg, SpeedLevel: spd, UltID: ult, DashID: dash, StarPowerID: star,
 		})
 		protos = append(protos, protocol.BattleStartedPlayer{
-			Name: name, ModelID: modelID, Index: int32(i), Team: int32(team),
+			PlayerID: e.playerID, Name: name, ModelID: modelID, Index: int32(i), Team: int32(team),
 			HPLevel: hp, DamageLevel: dmg, SpeedLevel: spd,
 			UltimateUpgradeID: ult, DashID: dash,
 		})
@@ -405,7 +477,7 @@ func (m *Matchmaking) allocate(locID int, group []*queueEntry, fillWithBots bool
 	}
 	if mode.Name == "mega_boss" {
 		boss := megaBossForDay(cat, time.Now())
-		if boss == nil || len(group) < 3 || len(group) > 6 {
+		if boss == nil || len(parts) < 3 || len(parts) > 6 {
 			return
 		}
 		index := len(parts)
@@ -494,7 +566,7 @@ func (m *Matchmaking) allocate(locID int, group []*queueEntry, fillWithBots bool
 			SessionID: sessions[p.Index],
 			VoiceHost: vc.Host, VoicePort: int32(vc.Port), VoiceToken: vc.Token,
 		}
-		conn.Send(protocol.SBattleStarted, msg.Encode())
+		m.s.sendBattleStarted(conn, msg)
 	}
 }
 
@@ -508,7 +580,11 @@ func (m *Matchmaking) dequeueGroup(group []*queueEntry) {
 
 func (m *Matchmaking) appendBots(parts *[]*battleserver.Participant, protos *[]protocol.BattleStartedPlayer, teamSizes []int, mode *content.GameMode, cat *content.CatalogData) {
 	heroes := cat.Heroes()
-	if len(heroes) == 0 || len(*parts) >= mode.MaxPlayers {
+	capacity := mode.MaxPlayers
+	if mode.Name == "mega_boss" {
+		capacity = 3
+	}
+	if len(heroes) == 0 || len(*parts) >= capacity {
 		return
 	}
 	taken := make([]string, 0, len(*parts))
@@ -516,24 +592,30 @@ func (m *Matchmaking) appendBots(parts *[]*battleserver.Participant, protos *[]p
 		taken = append(taken, p.Name)
 	}
 	names := newBotNamePool(taken)
-	for index := len(*parts); index < mode.MaxPlayers; index++ {
+	for index := len(*parts); index < capacity; index++ {
 		ch := heroes[index%len(heroes)]
 		team := 0
-		for t := 1; t < len(teamSizes); t++ {
+		for t := 1; mode.Name != "mega_boss" && mode.Name != "infection" && t < len(teamSizes); t++ {
 			if teamSizes[t] < teamSizes[team] {
 				team = t
 			}
 		}
 		teamSizes[team]++
 		name := names.take(index)
+		var hp, damage, speed int32
+		if mode.Name == "mega_boss" && len(*parts) > 0 {
+			hp, damage, speed = (*parts)[0].HPLevel, (*parts)[0].DamageLevel, (*parts)[0].SpeedLevel
+		}
 		*parts = append(*parts, &battleserver.Participant{
 			PlayerID: int64(-1000 - index), IsBot: true, Index: index, Team: team,
 			Name: name, ModelID: int32(ch.Id),
-			UltID: -1, DashID: -1,
+			HPLevel: hp, DamageLevel: damage, SpeedLevel: speed,
+			UltID: -1, DashID: -1, StarPowerID: -1,
 		})
 		*protos = append(*protos, protocol.BattleStartedPlayer{
 			Name: name, ModelID: int32(ch.Id),
 			Index: int32(index), Team: int32(team),
+			HPLevel: hp, DamageLevel: damage, SpeedLevel: speed,
 			UltimateUpgradeID: -1, DashID: -1,
 		})
 	}
@@ -584,13 +666,15 @@ func (m *Matchmaking) settleBattleResult(r *battleserver.Result) bool {
 	if m.s.store.Meta.Receipts["battle:"+r.BattleID] > 0 {
 		return true
 	}
+	m.s.applyCheatReports(r)
 	allocation := m.s.store.Meta.Allocations[r.BattleID]
 	if allocation == nil {
 		m.s.log.Warn("ignored result without durable allocation", "battle", r.BattleID)
 		return false
 	}
 
-	if r.Aborted && r.FinalTick < 1 {
+	// Тестовая арена — тренировка: ни кубков, ни записи в историю боёв.
+	if r.Aborted && r.FinalTick < 1 || practiceBattle(r.BattleID) {
 		return m.releaseAbortedAllocation(r)
 	}
 	if r.ModeID != allocation.ModeID || len(r.Players) != len(allocation.Players) || r.FinalTick < 1 {
@@ -605,7 +689,7 @@ func (m *Matchmaking) settleBattleResult(r *battleserver.Result) bool {
 	}
 	for _, slot := range allocation.Players {
 		p := byIndex[slot.Index]
-		if p == nil || p.PlayerID != slot.PlayerID || p.Team != slot.Team || p.ModelID != slot.CharacterModelID {
+		if p == nil || p.PlayerID != slot.PlayerID || p.ResultTeam() != slot.Team || p.ResultModel() != slot.CharacterModelID {
 			return false
 		}
 	}
@@ -618,9 +702,17 @@ func (m *Matchmaking) settleBattleResult(r *battleserver.Result) bool {
 		ranks = allocation.FinalRanks
 	}
 	record := store.BattleRecord{BattleID: r.BattleID, LocationID: allocation.LocationID, ModeID: allocation.ModeID, StartedAt: allocation.StartedAt, TotalTicks: r.FinalTick, TrophyDeltas: map[int64]int32{}, Ranks: map[int64]int32{}}
+	for _, h := range r.Highlights {
+		record.Highlights = append(record.Highlights, store.BattleHighlight{Tick: h.Tick, Kind: int32(h.Kind), Player: int32(h.Player), Count: int32(h.Count)})
+	}
 	for _, slot := range allocation.Players {
 		rank := ranks[slot.Team]
+		// Кошмар и Заражение делят победу не по командам: место — у каждого своё.
+		if own, ok := r.PlayerRanks[slot.Index]; ok {
+			rank = own
+		}
 		slot.Rank = int32(rank)
+		slot.ModeRole = int32(r.PlayerRoles[slot.Index])
 		if slot.Abandoned {
 			byIndex[slot.Index].Abandoned = true
 		}
@@ -662,6 +754,10 @@ func (m *Matchmaking) settleBattleResult(r *battleserver.Result) bool {
 	m.s.store.Meta.Receipts["battle:"+r.BattleID] = time.Now().UnixMilli()
 	delete(m.s.store.Meta.Allocations, r.BattleID)
 	m.s.store.AddBattle(record)
+	// Задержка доставки результата: от последнего тика боя до записи здесь.
+	// Тестеры жаловались, что экран итогов появляется долго.
+	m.s.log.Info("battle settled", "battle", r.BattleID, "mode", allocation.ModeID, "ticks", r.FinalTick,
+		"deliveryMs", time.Now().UnixMilli()-allocation.StartedAt-r.DurationMs)
 	m.mu.Lock()
 	delete(m.rosters, r.BattleID)
 	delete(m.modes, r.BattleID)
@@ -673,23 +769,37 @@ func (m *Matchmaking) settleBattleResult(r *battleserver.Result) bool {
 			continue
 		}
 		conn, ok := m.s.ConnByPlayer(own.PlayerID)
+		// Вышедший раньше конца тоже возвращается в лобби команды.
+		if ok && conn.BattleID == "" {
+			m.s.releaseTeamMember(own.PlayerID)
+		}
 		if !ok || conn.BattleID != r.BattleID {
 			continue
 		}
 		conn.BattleID = ""
-		if t := m.s.store.TeamForPlayer(own.PlayerID); t != nil {
-			t.Members[own.PlayerID].State = 1
-			m.s.broadcastTeamUpdate(t.ID)
-		}
+		m.s.releaseTeamMember(own.PlayerID)
 		players := []protocol.BattleEndedPlayer{}
 		for _, p := range record.Players {
 			stats := byIndex[p.Index]
-			players = append(players, protocol.BattleEndedPlayer{CharacterModelID: p.CharacterModelID, Name: p.Name, Trophies: p.Trophies, PowerLevel: max(1, p.HPLevel+p.DamageLevel+p.SpeedLevel-2), IsOwnPlayer: p.PlayerID == own.PlayerID, IsOwnTeam: p.Team == own.Team, Statistics: [][2]int32{{1, int32(stats.Kills)}, {2, int32(stats.DamageDealt)}, {3, int32(stats.DamageTaken)}, {4, int32(stats.HealingDone)}, {5, int32(stats.Deaths)}, {8, int32(stats.UltimateUses)}}})
+			// 30–32 — место, роль в режиме и победа игрока: в Кошмаре и Заражении
+			// победа своя у каждого, а экран итогов больших боёв показывает роли.
+			// Старые клиенты незнакомые ключи статистики пропускают.
+			players = append(players, protocol.BattleEndedPlayer{CharacterModelID: p.CharacterModelID, Name: p.Name, Trophies: p.Trophies, PowerLevel: max(1, p.HPLevel+p.DamageLevel+p.SpeedLevel-2), IsOwnPlayer: p.PlayerID == own.PlayerID, IsOwnTeam: p.Team == own.Team, Statistics: [][2]int32{{1, int32(stats.Kills)}, {2, int32(stats.DamageDealt)}, {3, int32(stats.DamageTaken)}, {4, int32(stats.HealingDone)}, {5, int32(stats.Deaths)}, {8, int32(stats.UltimateUses)},
+				{30, p.Rank}, {31, p.ModeRole}, {32, int32(boolInt32(isWinningRank(mode, p.Rank)))}}})
 		}
-		conn.Send(protocol.SBattleEnded, protocol.EncodeBattleEnded(allocation.ModeID, own.Rank, record.TrophyDeltas[own.PlayerID], false, players))
+		if !conn.Send(protocol.SBattleEnded, protocol.EncodeBattleEnded(allocation.ModeID, own.Rank, record.TrophyDeltas[own.PlayerID], false, players)) {
+			m.s.log.Warn("battle result could not be sent to client", "battle", r.BattleID, "player", own.PlayerID)
+		}
 	}
 	return true
 }
+func boolInt32(v bool) int32 {
+	if v {
+		return 1
+	}
+	return 0
+}
+
 func isWinningRank(mode *content.GameMode, rank int32) bool {
 	if rank <= 0 {
 		return false
